@@ -1,0 +1,21 @@
+name: Daily Build
+
+on:
+  schedule:
+    # 毎日 UTC 15:00 = 日本時間(JST) 翌0:00
+    - cron: "0 15 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger-netlify-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Netlify Build Hook
+        env:
+          NETLIFY_BUILD_HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
+        run: |
+          if [ -z "$NETLIFY_BUILD_HOOK" ]; then
+            echo "NETLIFY_BUILD_HOOK secret が設定されていません" >&2
+            exit 1
+          fi
+          curl -sSf -X POST "$NETLIFY_BUILD_HOOK"

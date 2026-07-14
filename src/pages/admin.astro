@@ -1,0 +1,395 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+---
+
+<BaseLayout title="日記投稿" description="日記投稿管理ページ" noindex>
+  <div class="ncom-l-container admin-page">
+    <section id="login-section" class="login-card">
+      <h1>日記投稿</h1>
+      <p class="login-card__lead">パスワードを入力してください。</p>
+      <form id="login-form" class="login-form">
+        <input
+          type="password"
+          id="login-password"
+          name="password"
+          placeholder="パスワード"
+          autocomplete="current-password"
+          required
+        />
+        <button type="submit" class="ncom-c-cta-btn">ログイン</button>
+      </form>
+      <p id="login-error" class="feedback feedback--error" hidden></p>
+    </section>
+
+    <section id="post-section" class="post-section" hidden>
+      <div class="post-section__header">
+        <h1>日記投稿</h1>
+        <button type="button" id="logout-btn" class="logout-btn">ログアウト</button>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button
+          type="button"
+          class="tab-btn"
+          data-tab="single"
+          role="tab"
+          aria-selected="true"
+        >
+          通常投稿
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          data-tab="bulk"
+          role="tab"
+          aria-selected="false"
+        >
+          一括インポート
+        </button>
+      </div>
+
+      <form id="single-form" class="tab-panel" data-tab-panel="single">
+        <label class="field">
+          <span class="field__label">日付</span>
+          <input type="date" id="single-date" name="date" required />
+        </label>
+        <label class="field">
+          <span class="field__label">本文</span>
+          <textarea
+            id="single-content"
+            name="content"
+            rows="10"
+            placeholder="今日の出来事を書く"
+            required></textarea>
+        </label>
+        <button type="submit" class="ncom-c-cta-btn">投稿する</button>
+      </form>
+
+      <form id="bulk-form" class="tab-panel" data-tab-panel="bulk" hidden>
+        <label class="field">
+          <span class="field__label">インポートするテキスト</span>
+          <textarea
+            id="bulk-content"
+            name="content"
+            rows="20"
+            placeholder={"260714\n本文…\n\n段落を分けたい場合は空行を入れる\n\n260715\n翌日の本文…"}
+            required></textarea>
+        </label>
+        <button type="submit" class="ncom-c-cta-btn">インポートする</button>
+      </form>
+
+      <p id="post-feedback" class="feedback" hidden></p>
+    </section>
+  </div>
+
+  <style>
+    .admin-page {
+      max-width: 720px;
+      padding: 64px 24px 96px;
+    }
+
+    .login-card {
+      max-width: 360px;
+      margin: 0 auto;
+    }
+
+    .login-card__lead {
+      margin: 16px 0 24px;
+      color: var(--ncom-color-txt-sub);
+    }
+
+    .login-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .login-form input[type="password"] {
+      height: 48px;
+      padding: 0 16px;
+      border: 1px solid var(--ncom-color-gray-500);
+      border-radius: 2px;
+      background-color: var(--ncom-bg-surface-300);
+      font-family: var(--ncom-ff-ja);
+      font-size: 16px;
+    }
+
+    .post-section__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .logout-btn {
+      border: 1px solid var(--ncom-color-gray-500);
+      border-radius: 2px;
+      background: transparent;
+      color: var(--ncom-color-txt-sub);
+      padding: 8px 16px;
+      font-family: var(--ncom-ff-ja);
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    .logout-btn:hover {
+      opacity: 0.7;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--ncom-color-gray-300);
+    }
+
+    .tab-btn {
+      padding: 12px 20px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--ncom-color-txt-sub);
+      font-family: var(--ncom-ff-ja);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .tab-btn[aria-selected="true"] {
+      border-bottom-color: var(--ncom-color-red);
+      color: var(--ncom-color-heading);
+    }
+
+    .tab-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field__label {
+      color: var(--ncom-color-txt-sub);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .field input[type="date"] {
+      height: 48px;
+      padding: 0 16px;
+      border: 1px solid var(--ncom-color-gray-500);
+      border-radius: 2px;
+      background-color: var(--ncom-bg-surface-300);
+      font-family: var(--ncom-ff-roboto);
+      font-size: 16px;
+      width: fit-content;
+    }
+
+    .field textarea {
+      padding: 16px;
+      border: 1px solid var(--ncom-color-gray-500);
+      border-radius: 2px;
+      background-color: var(--ncom-bg-page);
+      font-family: var(--ncom-ff-ja);
+      font-size: 16px;
+      line-height: 1.8;
+      resize: vertical;
+    }
+
+    .ncom-c-cta-btn {
+      align-self: flex-start;
+      border: none;
+      cursor: pointer;
+    }
+
+    .feedback {
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 2px;
+      background-color: var(--ncom-bg-surface-100);
+      color: var(--ncom-color-txt);
+      font-size: 14px;
+    }
+
+    .feedback--error {
+      background-color: #fdecec;
+      color: var(--ncom-color-deep-red);
+    }
+
+    .feedback--success {
+      background-color: #eaf7ec;
+      color: #1b7a2e;
+    }
+  </style>
+
+  <script>
+    const STORAGE_KEY = "diary_admin_password";
+
+    const loginSection = document.getElementById(
+      "login-section"
+    ) as HTMLElement;
+    const postSection = document.getElementById(
+      "post-section"
+    ) as HTMLElement;
+    const loginForm = document.getElementById("login-form") as HTMLFormElement;
+    const loginPasswordInput = document.getElementById(
+      "login-password"
+    ) as HTMLInputElement;
+    const loginError = document.getElementById("login-error") as HTMLElement;
+    const logoutBtn = document.getElementById("logout-btn") as HTMLElement;
+
+    const tabBtns = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(".tab-btn")
+    );
+    const tabPanels = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-tab-panel]")
+    );
+
+    const singleForm = document.getElementById(
+      "single-form"
+    ) as HTMLFormElement;
+    const singleDateInput = document.getElementById(
+      "single-date"
+    ) as HTMLInputElement;
+    const singleContentInput = document.getElementById(
+      "single-content"
+    ) as HTMLTextAreaElement;
+
+    const bulkForm = document.getElementById("bulk-form") as HTMLFormElement;
+    const bulkContentInput = document.getElementById(
+      "bulk-content"
+    ) as HTMLTextAreaElement;
+
+    const postFeedback = document.getElementById(
+      "post-feedback"
+    ) as HTMLElement;
+
+    function todayIso(): string {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      const d = String(now.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function showPostUI() {
+      loginSection.hidden = true;
+      postSection.hidden = false;
+      singleDateInput.value = todayIso();
+    }
+
+    function showLoginUI(message?: string) {
+      postSection.hidden = true;
+      loginSection.hidden = false;
+      if (message) {
+        loginError.textContent = message;
+        loginError.hidden = false;
+      } else {
+        loginError.hidden = true;
+      }
+    }
+
+    function getStoredPassword(): string | null {
+      return sessionStorage.getItem(STORAGE_KEY);
+    }
+
+    function setStoredPassword(password: string) {
+      sessionStorage.setItem(STORAGE_KEY, password);
+    }
+
+    function clearStoredPassword() {
+      sessionStorage.removeItem(STORAGE_KEY);
+    }
+
+    function setFeedback(message: string, ok: boolean) {
+      postFeedback.textContent = message;
+      postFeedback.hidden = false;
+      postFeedback.classList.toggle("feedback--success", ok);
+      postFeedback.classList.toggle("feedback--error", !ok);
+    }
+
+    async function submitDiary(body: {
+      date?: string;
+      content: string;
+      mode: "single" | "bulk";
+    }) {
+      const password = getStoredPassword();
+      if (!password) {
+        showLoginUI();
+        return;
+      }
+
+      const res = await fetch("/.netlify/functions/diary-post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password, ...body }),
+      });
+
+      const result = await res.json().catch(() => ({
+        success: false,
+        message: "サーバーからの応答を読み取れませんでした",
+      }));
+
+      if (res.status === 401) {
+        clearStoredPassword();
+        showLoginUI("パスワードが違います。もう一度入力してください。");
+        return;
+      }
+
+      setFeedback(result.message ?? "", Boolean(result.success));
+    }
+
+    loginForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const password = loginPasswordInput.value;
+      if (!password) return;
+      setStoredPassword(password);
+      loginPasswordInput.value = "";
+      showPostUI();
+    });
+
+    logoutBtn.addEventListener("click", () => {
+      clearStoredPassword();
+      postFeedback.hidden = true;
+      showLoginUI();
+    });
+
+    tabBtns.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.tab;
+        tabBtns.forEach((b) => b.setAttribute("aria-selected", String(b === btn)));
+        tabPanels.forEach((panel) => {
+          panel.hidden = panel.dataset.tabPanel !== target;
+        });
+        postFeedback.hidden = true;
+      });
+    });
+
+    singleForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await submitDiary({
+        date: singleDateInput.value,
+        content: singleContentInput.value,
+        mode: "single",
+      });
+      singleContentInput.value = "";
+    });
+
+    bulkForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      await submitDiary({
+        content: bulkContentInput.value,
+        mode: "bulk",
+      });
+      bulkContentInput.value = "";
+    });
+
+    if (getStoredPassword()) {
+      showPostUI();
+    }
+  </script>
+</BaseLayout>
