@@ -1,0 +1,131 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "../layouts/BaseLayout.astro";
+
+const entries = (await getCollection("diary")).sort((a, b) =>
+  b.data.yearMonth.localeCompare(a.data.yearMonth)
+);
+---
+
+<BaseLayout title="つきなみ日記">
+  <section class="hero">
+    <div class="ncom-l-container">
+      <h1>つきなみ日記</h1>
+      <p class="hero__lead">月ごとの出来事をゆっくり書き残していく日記サイトです。</p>
+    </div>
+  </section>
+
+  <section class="diary-list">
+    <div class="ncom-l-container">
+      <h2 class="diary-list__heading">月別日記一覧</h2>
+      <ul class="diary-list__items">
+        {
+          entries.map((entry) => (
+            <li class="diary-card">
+              <a href={`/diary/${entry.id}/`} class="diary-card__link">
+                <span class="diary-card__yearmonth">
+                  {entry.data.yearMonth.replace("-", ".")}
+                </span>
+                <span class="diary-card__body">
+                  <span class="diary-card__title">{entry.data.title}</span>
+                  {entry.data.description && (
+                    <span class="diary-card__desc">
+                      {entry.data.description}
+                    </span>
+                  )}
+                </span>
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <style>
+    .hero {
+      padding: 64px 0 40px;
+    }
+
+    .hero__lead {
+      margin: 16px 0 0;
+      color: var(--ncom-color-txt);
+    }
+
+    .diary-list {
+      padding: 24px 0 80px;
+    }
+
+    .diary-list__heading {
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--ncom-color-gray-300);
+    }
+
+    .diary-list__items {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .diary-card {
+      border-bottom: 1px solid var(--ncom-color-gray-300);
+    }
+
+    .diary-card__link {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      padding: 24px 8px;
+      text-decoration: none;
+      color: inherit;
+      transition: background-color 0.2s var(--ncom-ease-scaleUp);
+    }
+
+    .diary-card__link:hover {
+      background-color: var(--ncom-bg-surface-100);
+      opacity: 1;
+    }
+
+    .diary-card__yearmonth {
+      flex-shrink: 0;
+      width: 140px;
+      color: var(--ncom-color-txt-sub);
+      font-family: var(--ncom-ff-roboto);
+      font-size: 38px;
+      line-height: 1;
+    }
+
+    .diary-card__body {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      line-height: 1.6;
+    }
+
+    .diary-card__title {
+      color: var(--ncom-color-heading);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .diary-card__desc {
+      color: var(--ncom-color-txt-sub);
+      font-size: 14px;
+    }
+
+    @media (max-width: 767px) {
+      .diary-card__link {
+        gap: 16px;
+        align-items: flex-start;
+      }
+
+      .diary-card__yearmonth {
+        width: auto;
+        font-size: 28px;
+      }
+    }
+  </style>
+</BaseLayout>

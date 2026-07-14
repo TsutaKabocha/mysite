@@ -1,0 +1,114 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "月ごとの日記をまとめて記録するサイトです。" } =
+  Astro.props;
+const siteName = "つきなみ日記";
+const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
+---
+
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <title>{pageTitle}</title>
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="ncom-l-container site-header__inner">
+        <a href="/" class="site-header__logo">{siteName}</a>
+        <nav class="site-header__nav">
+          <a href="/">ホーム</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="site-main">
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="ncom-l-container">
+        <p class="site-footer__copy">&copy; 2026 {siteName}</p>
+      </div>
+    </footer>
+
+    <style>
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        height: var(--ncom-header-height);
+        background-color: var(--ncom-bg-page);
+        border-bottom: 1px solid var(--ncom-color-gray-300);
+      }
+
+      .site-header__inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 100%;
+      }
+
+      .site-header__logo {
+        color: var(--ncom-color-heading);
+        font-family: var(--ncom-ff-ja);
+        font-size: 16px;
+        font-weight: 700;
+        text-decoration: none;
+        letter-spacing: 0.03em;
+      }
+
+      .site-header__nav {
+        display: flex;
+        gap: 24px;
+      }
+
+      .site-header__nav a {
+        color: var(--ncom-color-txt);
+        font-size: 14px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .site-main {
+        min-height: calc(100vh - var(--ncom-header-height) - 80px);
+      }
+
+      .site-footer {
+        background-color: var(--ncom-bg-footer);
+        padding: 32px 0;
+        margin-top: 64px;
+      }
+
+      .site-footer__copy {
+        margin: 0;
+        color: var(--ncom-color-txt-sub);
+        font-family: var(--ncom-ff-roboto);
+        font-size: 13px;
+      }
+    </style>
+  </body>
+</html>

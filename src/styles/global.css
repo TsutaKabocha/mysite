@@ -1,0 +1,247 @@
+/* ==========================================================================
+   DESIGN.md 準拠 CSS Custom Properties
+   Nintendo Japan (nintendo.com/jp) 系デザインシステム — ncom-* 名前空間
+   ========================================================================== */
+
+@import "https://cdn.jsdelivr.net/npm/yakuhanjp@4.1.1/dist/css/yakuhanjp_s.css";
+
+:root {
+  /* === Brand === */
+  --ncom-color-red: #e60012; /* シグネチャー赤。CTA・強調 */
+  --ncom-color-deep-red: #cf0001; /* プレス時の濃い赤 */
+
+  /* === Neutral === */
+  --ncom-color-white: #fff;
+  --ncom-color-black: #000;
+  --ncom-color-gray: #c8c8c8;
+  --ncom-color-gray-100: #f8f7f6; /* 最薄の背景 */
+  --ncom-color-gray-300: #e6e6e6; /* 中間グレー */
+  --ncom-color-gray-500: #d9d9d9; /* やや濃いグレー */
+  --ncom-color-blue-gray: #e6e6e6;
+
+  /* === Text === */
+  --ncom-color-heading: #1b1b1b; /* 見出し本色 */
+  --ncom-color-txt: #3c3c3c; /* 本文 */
+  --ncom-color-txt-sub: #8c8c8c; /* 補足・キャプション */
+
+  /* === Accent === */
+  --ncom-color-gold: #9d7c00;
+  --ncom-color-light-blue: #00a5e6;
+  --ncom-color-yellow: #fff000;
+  --ncom-color-chat: #f58c14;
+  --ncom-color-share: #08b3bf;
+  --ncom-color-card: #808088;
+
+  /* === Background Roles === */
+  --ncom-bg-page: #ffffff;
+  --ncom-bg-surface-100: #f8f7f6;
+  --ncom-bg-surface-300: #e6e6e6;
+  --ncom-bg-footer: #f2f2f2;
+
+  /* === Typography === */
+  --ncom-ff-ja: "YakuHanJPs", "Roboto", "Hiragino Kaku Gothic ProN",
+    "ヒラギノ角ゴ ProN W3", Arial, "ncomJp", sans-serif;
+  --ncom-ff-noto: "Noto Sans JP", "Roboto", Arial, "ncomJp", sans-serif;
+  --ncom-ff-roboto: "Roboto", sans-serif;
+
+  /* === Layout === */
+  --ncom-header-height: 72px;
+
+  /* === Animation === */
+  --ncom-ease-scaleUp: cubic-bezier(0.455, 0.03, 0.515, 0.955);
+
+  /* === leading-trim トークン === */
+  --ncom-leading-trim: calc((1em - 1lh) / 2);
+}
+
+/* ==========================================================================
+   Reset / Base
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--ncom-bg-page);
+  color: var(--ncom-color-txt);
+  font-family: var(--ncom-ff-ja);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 2; /* ×2.0。任天堂らしいゆったりした行間 */
+  letter-spacing: normal;
+  word-break: normal;
+  overflow-wrap: normal;
+  line-break: auto;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+a:hover {
+  opacity: 0.7;
+}
+
+ul,
+ol {
+  padding-left: 1.5em;
+}
+
+/* ==========================================================================
+   Typography Hierarchy
+   ========================================================================== */
+
+h1,
+.ncom-c-heading-lv1 {
+  margin: 0;
+  color: var(--ncom-color-heading);
+  font-family: var(--ncom-ff-ja);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.8; /* 54px / 30px */
+  letter-spacing: 0.03em;
+}
+
+h2,
+.ncom-c-heading-lv1-sub {
+  margin: 0;
+  color: var(--ncom-color-heading);
+  font-family: var(--ncom-ff-ja);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.8; /* 28.8px / 16px */
+  letter-spacing: 0.03em;
+}
+
+h3,
+.ncom-c-section-heading {
+  margin: 0;
+  color: var(--ncom-color-heading);
+  font-family: var(--ncom-ff-ja);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 2; /* 32px / 16px */
+  letter-spacing: normal;
+}
+
+.ncom-c-news-yearmonth {
+  color: var(--ncom-color-txt-sub);
+  font-family: var(--ncom-ff-roboto);
+  font-size: 38px;
+  font-weight: 400;
+  line-height: 1; /* 38px / 38px */
+  letter-spacing: normal;
+}
+
+.ncom-c-news-day {
+  font-family: var(--ncom-ff-ja);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: normal;
+}
+
+.ncom-c-news-title {
+  font-family: var(--ncom-ff-ja);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.6; /* 22.4px / 14px */
+  letter-spacing: normal;
+}
+
+/* ==========================================================================
+   Buttons / Links
+   ========================================================================== */
+
+.ncom-c-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 24px;
+  border: 1px solid var(--ncom-color-gray-500);
+  border-radius: 2px;
+  background: transparent;
+  color: var(--ncom-color-txt);
+  font-family: var(--ncom-ff-ja);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5; /* 24px / 16px */
+  text-decoration: none;
+  transition: opacity 0.2s var(--ncom-ease-scaleUp);
+}
+
+.ncom-c-link-btn:hover {
+  opacity: 0.7;
+}
+
+.ncom-c-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 32px;
+  height: 48px;
+  border: none;
+  border-radius: 2px;
+  background-color: var(--ncom-color-red);
+  color: var(--ncom-color-white);
+  font-family: var(--ncom-ff-ja);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s var(--ncom-ease-scaleUp);
+}
+
+.ncom-c-cta-btn:hover {
+  background-color: var(--ncom-color-deep-red);
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Layout Helpers
+   ========================================================================== */
+
+.ncom-l-container {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.ncom-l-surface {
+  background-color: var(--ncom-bg-surface-100);
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   Responsive
+   ========================================================================== */
+
+@media (max-width: 767px) {
+  h1,
+  .ncom-c-heading-lv1 {
+    font-size: 22px;
+  }
+
+  .ncom-c-news-yearmonth {
+    font-size: 28px;
+  }
+}
