@@ -102,6 +102,7 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         height: var(--ncom-header-height);
         background-color: var(--ncom-bg-page);
         border-bottom: 1px solid var(--ncom-color-gray-300);
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
 
       .site-header__inner {
@@ -134,6 +135,14 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
 
       .site-header__nav a[aria-current="page"] {
         color: var(--color-primary-dark);
+      }
+
+      [data-theme="dark"] .site-header__nav a {
+        color: var(--color-primary-bright);
+      }
+
+      [data-theme="dark"] .site-header__nav a:hover {
+        color: var(--color-primary-bright);
       }
 
       .theme-toggle {

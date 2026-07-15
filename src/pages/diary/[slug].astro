@@ -35,7 +35,7 @@ const nextEntry =
 
 <BaseLayout title={entry.data.title} description={entry.data.description}>
   <div class="diary-page">
-    <nav class="diary-nav" aria-label="月別アーカイブ">
+    <nav class="diary-nav diary-nav--desktop" aria-label="月別アーカイブ">
       <ul class="diary-nav__list">
         {
           sortedDescending.map((item) => (
@@ -80,6 +80,24 @@ const nextEntry =
         }
       </div>
 
+      <nav class="diary-nav diary-nav--mobile" aria-label="月別アーカイブ">
+        <ul class="diary-nav__list">
+          {
+            sortedDescending.map((item) => (
+              <li>
+                <a
+                  href={`/diary/${item.id}/`}
+                  class="diary-nav__link"
+                  aria-current={item.id === entry.id ? "page" : undefined}
+                >
+                  {formatYearMonthCompact(item.data.yearMonth)}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </nav>
+
       <div class="diary-article__body">
         {
           diaryGroups.map((group) => (
@@ -115,12 +133,19 @@ const nextEntry =
       padding: 48px 24px 96px;
     }
 
-    .diary-nav {
+    .diary-nav--desktop {
       grid-column: 1;
       justify-self: end;
       align-self: start;
       position: sticky;
       top: calc(var(--ncom-header-height) + 24px);
+      max-height: calc(100vh - 100px);
+      overflow-y: auto;
+      scrollbar-width: thin;
+    }
+
+    .diary-nav--mobile {
+      display: none;
     }
 
     .diary-nav__list {
@@ -310,25 +335,35 @@ const nextEntry =
         padding: 32px 16px 64px;
       }
 
-      .diary-nav {
-        grid-column: 1;
-        justify-self: stretch;
-        position: static;
-        margin-bottom: 24px;
+      .diary-nav--desktop {
+        display: none;
       }
 
-      .diary-nav__list {
+      .diary-nav--mobile {
+        display: block;
+        margin: 16px 0 24px;
+      }
+
+      .diary-nav--mobile .diary-nav__list {
         flex-direction: row;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
       }
 
-      .diary-nav__link {
+      .diary-nav--mobile .diary-nav__list::-webkit-scrollbar {
+        display: none;
+      }
+
+      .diary-nav--mobile .diary-nav__link {
+        flex-shrink: 0;
+        white-space: nowrap;
         border-left: none;
         border-top: 2px solid transparent;
       }
 
-      .diary-nav__link[aria-current="page"] {
+      .diary-nav--mobile .diary-nav__link[aria-current="page"] {
         border-top-color: var(--color-primary);
       }
 
@@ -404,5 +439,11 @@ const nextEntry =
         closeLightbox();
       }
     });
+
+    // モバイルの横スクロール月ナビで、現在の月が中央付近に見えるようにする
+    // (PC表示では .diary-nav--mobile が display:none のため実質何もしない)
+    document
+      .querySelector<HTMLElement>('.diary-nav--mobile [aria-current="page"]')
+      ?.scrollIntoView({ inline: "center", behavior: "smooth" });
   </script>
 </BaseLayout>
