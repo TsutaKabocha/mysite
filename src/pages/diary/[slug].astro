@@ -1,9 +1,9 @@
 ---
 import { getCollection } from "astro:content";
-import { marked } from "marked";
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import {
   parseDiaryEntries,
+  renderDiaryMarkdown,
   formatYearMonthCompact,
   formatYearMonthLong,
 } from "../../lib/diary";
@@ -89,13 +89,20 @@ const nextEntry =
                 <span class="diary-entry__heading-rule" aria-hidden="true" />
               </h2>
               {group.bodies.map((body) => (
-                <div class="diary-entry__post" set:html={marked.parse(body)} />
+                <div
+                  class="diary-entry__post"
+                  set:html={renderDiaryMarkdown(body)}
+                />
               ))}
             </section>
           ))
         }
       </div>
     </article>
+  </div>
+
+  <div id="lightbox" class="lightbox" hidden>
+    <img id="lightbox-img" class="lightbox__img" src="" alt="" />
   </div>
 
   <style>
@@ -225,9 +232,57 @@ const nextEntry =
       margin: 0 0 16px;
     }
 
-    .diary-article__body :global(img) {
+    .diary-article__body :global(.diary-media) {
+      display: block;
+    }
+
+    .diary-article__body :global(.diary-media--image),
+    .diary-article__body :global(.diary-media--video) {
+      width: 66.7%;
       max-width: 100%;
       height: auto;
+      margin: 0 auto;
+    }
+
+    .diary-article__body :global(.diary-media--image) {
+      cursor: zoom-in;
+    }
+
+    .diary-article__body :global(.diary-media--audio) {
+      width: 100%;
+    }
+
+    .diary-article__body :global(.diary-image-pair) {
+      display: flex;
+      gap: 16px;
+      margin: 0 0 16px;
+    }
+
+    .diary-article__body :global(.diary-image-pair .diary-media--image) {
+      width: 48%;
+      margin: 0;
+    }
+
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.85);
+      cursor: zoom-out;
+    }
+
+    .lightbox[hidden] {
+      display: none;
+    }
+
+    .lightbox__img {
+      display: block;
+      max-width: 90vw;
+      max-height: 90vh;
+      cursor: default;
     }
 
     @media (max-width: 767px) {
@@ -271,4 +326,43 @@ const nextEntry =
       }
     }
   </style>
+
+  <script>
+    const lightbox = document.getElementById("lightbox") as HTMLElement;
+    const lightboxImg = document.getElementById(
+      "lightbox-img"
+    ) as HTMLImageElement;
+
+    function openLightbox(src: string, alt: string) {
+      lightboxImg.src = src;
+      lightboxImg.alt = alt;
+      lightbox.hidden = false;
+    }
+
+    function closeLightbox() {
+      lightbox.hidden = true;
+      lightboxImg.src = "";
+    }
+
+    document.addEventListener("click", (e) => {
+      const target = e.target;
+      if (
+        target instanceof HTMLImageElement &&
+        target.hasAttribute("data-lightbox")
+      ) {
+        openLightbox(target.src, target.alt);
+        return;
+      }
+      // オーバーレイ(画像以外)をクリックした場合のみ閉じる
+      if (target === lightbox) {
+        closeLightbox();
+      }
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !lightbox.hidden) {
+        closeLightbox();
+      }
+    });
+  </script>
 </BaseLayout>
