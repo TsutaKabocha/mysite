@@ -84,6 +84,7 @@
   --color-success-bg: #16321f;
   --color-success-text: #4caf6a;
   --color-danger-bg: #3a1a1a;
+  --color-primary-bright: #4caf50; /* ダークモードのホバー用。暗い背景でも視認できる明るいグリーン */
 
   --ncom-color-red: #ff4d4d;
   --ncom-color-deep-red: #ff6b6b;
@@ -104,6 +105,10 @@
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* ライト/ダークモード切り替え時にふわっと変化させる。
+     FLASH防止のテーマ初期化スクリプト(BaseLayout.astroの<head>内インラインscript)は
+     初回ペイント前に data-theme を確定させるため、初期表示ではtransitionは発火しない */
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 body {
@@ -118,6 +123,7 @@ body {
   word-break: normal;
   overflow-wrap: normal;
   line-break: auto;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 img,

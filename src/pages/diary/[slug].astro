@@ -101,7 +101,7 @@ const nextEntry =
     </article>
   </div>
 
-  <div id="lightbox" class="lightbox" hidden>
+  <div id="lightbox" class="lightbox">
     <img id="lightbox-img" class="lightbox__img" src="" alt="" />
   </div>
 
@@ -271,18 +271,21 @@ const nextEntry =
     }
 
     .lightbox {
+      display: none;
       position: fixed;
       inset: 0;
       z-index: 100;
-      display: flex;
       align-items: center;
       justify-content: center;
       background: rgba(0, 0, 0, 0.85);
       cursor: zoom-out;
+      opacity: 0;
+      transition: opacity 0.2s ease;
     }
 
-    .lightbox[hidden] {
-      display: none;
+    .lightbox.is-open {
+      opacity: 1;
+      transition: opacity 0.25s ease;
     }
 
     .lightbox__img {
@@ -290,6 +293,15 @@ const nextEntry =
       max-width: 90vw;
       max-height: 90vh;
       cursor: default;
+      transform: scale(0.85);
+      opacity: 0;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .lightbox.is-open .lightbox__img {
+      transform: scale(1);
+      opacity: 1;
+      transition: transform 0.25s ease, opacity 0.25s ease;
     }
 
     @media (max-width: 767px) {
@@ -340,15 +352,36 @@ const nextEntry =
       "lightbox-img"
     ) as HTMLImageElement;
 
+    const LIGHTBOX_CLOSE_DURATION = 200; // .lightbox の閉じるtransitionと合わせる
+
+    let lightboxIsOpen = false;
+    let closeTimeoutId: number | undefined;
+
     function openLightbox(src: string, alt: string) {
+      if (closeTimeoutId !== undefined) {
+        window.clearTimeout(closeTimeoutId);
+        closeTimeoutId = undefined;
+      }
       lightboxImg.src = src;
       lightboxImg.alt = alt;
-      lightbox.hidden = false;
+      lightbox.style.display = "flex";
+      // display:none → flex にした直後に is-open を付けると
+      // ブラウザがopen前の状態を描画せずtransitionが発火しないことがあるため、
+      // 強制的にreflowさせてから is-open を付与する
+      void lightbox.offsetHeight;
+      lightbox.classList.add("is-open");
+      lightboxIsOpen = true;
     }
 
     function closeLightbox() {
-      lightbox.hidden = true;
-      lightboxImg.src = "";
+      if (!lightboxIsOpen) return;
+      lightboxIsOpen = false;
+      lightbox.classList.remove("is-open");
+      closeTimeoutId = window.setTimeout(() => {
+        lightbox.style.display = "none";
+        lightboxImg.src = "";
+        closeTimeoutId = undefined;
+      }, LIGHTBOX_CLOSE_DURATION);
     }
 
     document.addEventListener("click", (e) => {
@@ -367,7 +400,7 @@ const nextEntry =
     });
 
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && !lightbox.hidden) {
+      if (e.key === "Escape" && lightboxIsOpen) {
         closeLightbox();
       }
     });

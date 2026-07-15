@@ -22,8 +22,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </section>
 
     <section id="post-section" class="post-section" hidden>
-      <pre id="bg-text" class="bg-text" aria-hidden="true"></pre>
-
       <div class="post-section__header">
         <h1>日記投稿</h1>
         <button type="button" id="logout-btn" class="logout-btn">ログアウト</button>
@@ -154,28 +152,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       background-color: var(--ncom-bg-surface-300);
       font-family: var(--ncom-ff-ja);
       font-size: 16px;
-    }
-
-    .post-section {
-      position: relative;
-    }
-
-    .bg-text {
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: var(--ncom-ff-ja);
-      font-size: 16px;
-      line-height: 1.8;
-      color: var(--ncom-color-txt);
-      opacity: 0.1;
-      pointer-events: none;
-      user-select: none;
     }
 
     .post-section__header {
@@ -427,8 +403,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       "bulk-content"
     ) as HTMLTextAreaElement;
 
-    const bgText = document.getElementById("bg-text") as HTMLElement;
-
     const editForm = document.getElementById("edit-form") as HTMLFormElement;
     const editMonthSelect = document.getElementById(
       "edit-month-select"
@@ -464,20 +438,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     };
 
     let currentTab = "single";
-    let backgroundLoaded = false;
     let editMonthsLoaded = false;
 
     function decodeBase64Utf8(base64: string): string {
       const binary = atob(base64.replace(/\n/g, ""));
       const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
       return new TextDecoder("utf-8").decode(bytes);
-    }
-
-    function currentYearMonth(): string {
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = String(now.getMonth() + 1).padStart(2, "0");
-      return `${y}-${m}`;
     }
 
     async function githubGetFileContent(path: string): Promise<string | null> {
@@ -512,15 +478,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
     }
 
-    async function loadBackgroundText() {
-      const content = await githubGetFileContent(
-        `${DIARY_DIR}/${currentYearMonth()}.md`
-      );
-      if (content) {
-        bgText.textContent = content;
-      }
-    }
-
     async function populateEditMonths() {
       const months = await githubListDiaryMonths();
       for (const month of months) {
@@ -543,10 +500,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       loginSection.hidden = true;
       postSection.hidden = false;
       singleDateInput.value = todayIso();
-      if (!backgroundLoaded) {
-        backgroundLoaded = true;
-        loadBackgroundText();
-      }
       if (!editMonthsLoaded) {
         editMonthsLoaded = true;
         populateEditMonths();
