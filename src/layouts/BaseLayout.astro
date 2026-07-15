@@ -1,4 +1,5 @@
 ---
+import { getCollection } from "astro:content";
 import "../styles/global.css";
 
 interface Props {
@@ -12,8 +13,18 @@ const {
   description = "月ごとの日記をまとめて記録するサイトです。",
   noindex = false,
 } = Astro.props;
-const siteName = "つきなみ日記";
+const siteName = "蔦南瓜";
 const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
+
+const pathname = Astro.url.pathname;
+const isTop = pathname === "/";
+const isDiary = pathname.startsWith("/diary/");
+
+const diaryEntries = await getCollection("diary");
+const latestDiaryEntry = [...diaryEntries].sort((a, b) =>
+  b.data.yearMonth.localeCompare(a.data.yearMonth)
+)[0];
+const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
 ---
 
 <!doctype html>
@@ -57,14 +68,17 @@ const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
       <div class="ncom-l-container site-header__inner">
         <a href="/" class="site-header__logo">{siteName}</a>
         <nav class="site-header__nav">
-          <a href="/">ホーム</a>
+          <a href="/" aria-current={isTop ? "page" : undefined}>TOP</a>
+          <a href={diaryHref} aria-current={isDiary ? "page" : undefined}
+            >DIARY</a
+          >
           <button
             type="button"
             id="theme-toggle"
             class="theme-toggle"
             aria-label="ライト/ダークモード切り替え"
           >
-            🌙
+            DARK
           </button>
         </nav>
       </div>
@@ -118,25 +132,25 @@ const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
         text-decoration: none;
       }
 
+      .site-header__nav a[aria-current="page"] {
+        color: var(--color-primary-dark);
+      }
+
       .theme-toggle {
         display: inline-flex;
         align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
         padding: 0;
-        border: 1px solid var(--ncom-color-gray-500);
-        border-radius: 2px;
+        border: none;
         background: transparent;
-        color: var(--ncom-color-txt);
+        color: var(--color-primary-dark);
         font-size: 14px;
+        font-weight: 700;
         line-height: 1;
         cursor: pointer;
       }
 
       .theme-toggle:hover {
-        background-color: var(--ncom-bg-surface-100);
-        opacity: 1;
+        opacity: 0.7;
       }
 
       .site-main {
@@ -169,17 +183,17 @@ const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
           : "light";
       }
 
-      function updateToggleIcon() {
-        toggleBtn.textContent = currentTheme() === "dark" ? "☀️" : "🌙";
+      function updateToggleLabel() {
+        toggleBtn.textContent = currentTheme() === "dark" ? "LIGHT" : "DARK";
       }
 
-      updateToggleIcon();
+      updateToggleLabel();
 
       toggleBtn.addEventListener("click", () => {
         const next = currentTheme() === "dark" ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", next);
         localStorage.setItem(STORAGE_KEY, next);
-        updateToggleIcon();
+        updateToggleLabel();
       });
     </script>
   </body>
