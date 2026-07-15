@@ -1,6 +1,8 @@
 ---
-import { getCollection, render } from "astro:content";
+import { getCollection } from "astro:content";
+import { marked } from "marked";
 import BaseLayout from "../../layouts/BaseLayout.astro";
+import { parseDiaryEntries } from "../../lib/diary";
 
 export async function getStaticPaths() {
   const entries = await getCollection("diary");
@@ -11,7 +13,7 @@ export async function getStaticPaths() {
 }
 
 const { entry } = Astro.props;
-const { Content } = await render(entry);
+const diaryGroups = parseDiaryEntries(entry.body ?? "");
 
 const allEntries = (await getCollection("diary")).sort((a, b) =>
   b.data.yearMonth.localeCompare(a.data.yearMonth)
@@ -50,7 +52,16 @@ const allEntries = (await getCollection("diary")).sort((a, b) =>
         )
       }
       <div class="diary-article__body">
-        <Content />
+        {
+          diaryGroups.map((group) => (
+            <section class="diary-entry">
+              <h2>{group.heading}</h2>
+              {group.bodies.map((body) => (
+                <div class="diary-entry__post" set:html={marked.parse(body)} />
+              ))}
+            </section>
+          ))
+        }
       </div>
     </article>
   </div>
@@ -129,12 +140,17 @@ const allEntries = (await getCollection("diary")).sort((a, b) =>
       margin-bottom: 8px;
     }
 
-    .diary-article__body :global(h2:first-child) {
+    .diary-article__body :global(.diary-entry:first-child h2) {
       margin-top: 0;
     }
 
     .diary-article__body :global(p) {
       margin: 0 0 16px;
+    }
+
+    .diary-article__body :global(img) {
+      max-width: 100%;
+      height: auto;
     }
 
     @media (max-width: 767px) {

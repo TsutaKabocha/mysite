@@ -32,7 +32,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       <div class="tabs" role="tablist">
         <button
           type="button"
-          class="tab-btn"
+          class="tab-btn active"
           data-tab="single"
           role="tab"
           aria-selected="true"
@@ -59,7 +59,17 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </button>
       </div>
 
-      <form id="single-form" class="tab-panel" data-tab-panel="single">
+      <div class="media-upload">
+        <label class="media-upload__label" for="media-file">メディアを挿入</label>
+        <input
+          type="file"
+          id="media-file"
+          accept="image/*,audio/*,video/*"
+        />
+        <span id="media-upload-status" class="media-upload__status"></span>
+      </div>
+
+      <form id="single-form" class="tab-panel">
         <label class="field">
           <span class="field__label">日付</span>
           <input type="date" id="single-date" name="date" required />
@@ -76,7 +86,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <button type="submit" class="ncom-c-cta-btn">投稿する</button>
       </form>
 
-      <form id="bulk-form" class="tab-panel" data-tab-panel="bulk" hidden>
+      <form id="bulk-form" class="tab-panel">
         <label class="field">
           <span class="field__label">インポートするテキスト</span>
           <textarea
@@ -89,7 +99,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         <button type="submit" class="ncom-c-cta-btn">インポートする</button>
       </form>
 
-      <form id="edit-form" class="tab-panel" data-tab-panel="edit" hidden>
+      <form id="edit-form" class="tab-panel">
         <label class="field">
           <span class="field__label">編集する月</span>
           <select id="edit-month-select">
@@ -208,15 +218,44 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       cursor: pointer;
     }
 
-    .tab-btn[aria-selected="true"] {
+    .tab-btn.active {
       border-bottom-color: var(--ncom-color-red);
       color: var(--ncom-color-heading);
     }
 
     .tab-panel {
-      display: flex;
+      display: none;
       flex-direction: column;
       gap: 20px;
+    }
+
+    .media-upload {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding: 16px;
+      border: 1px solid var(--ncom-color-gray-500);
+      border-radius: 2px;
+      background-color: var(--ncom-bg-surface-100);
+    }
+
+    .media-upload__label {
+      color: var(--ncom-color-txt-sub);
+      font-size: 14px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .media-upload input[type="file"] {
+      font-family: var(--ncom-ff-ja);
+      font-size: 14px;
+    }
+
+    .media-upload__status {
+      color: var(--ncom-color-txt-sub);
+      font-size: 14px;
     }
 
     .field {
@@ -317,9 +356,6 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     const tabBtns = Array.from(
       document.querySelectorAll<HTMLButtonElement>(".tab-btn")
     );
-    const tabPanels = Array.from(
-      document.querySelectorAll<HTMLElement>("[data-tab-panel]")
-    );
 
     const singleForm = document.getElementById(
       "single-form"
@@ -353,6 +389,26 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       "post-feedback"
     ) as HTMLElement;
 
+    const mediaFileInput = document.getElementById(
+      "media-file"
+    ) as HTMLInputElement;
+    const mediaUploadStatus = document.getElementById(
+      "media-upload-status"
+    ) as HTMLElement;
+
+    const tabPanels: Record<string, HTMLElement> = {
+      single: singleForm,
+      bulk: bulkForm,
+      edit: editForm,
+    };
+
+    const tabTextareas: Record<string, HTMLTextAreaElement> = {
+      single: singleContentInput,
+      bulk: bulkContentInput,
+      edit: editContentInput,
+    };
+
+    let currentTab = "single";
     let backgroundLoaded = false;
     let editMonthsLoaded = false;
 
@@ -514,16 +570,27 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       showLoginUI();
     });
 
+    function activateTab(target: string) {
+      currentTab = target;
+      tabBtns.forEach((btn) => {
+        const isActive = btn.dataset.tab === target;
+        btn.classList.toggle("active", isActive);
+        btn.setAttribute("aria-selected", String(isActive));
+      });
+      for (const [key, panel] of Object.entries(tabPanels)) {
+        panel.style.display = key === target ? "flex" : "none";
+      }
+      postFeedback.hidden = true;
+    }
+
     tabBtns.forEach((btn) => {
       btn.addEventListener("click", () => {
         const target = btn.dataset.tab;
-        tabBtns.forEach((b) => b.setAttribute("aria-selected", String(b === btn)));
-        tabPanels.forEach((panel) => {
-          panel.hidden = panel.dataset.tabPanel !== target;
-        });
-        postFeedback.hidden = true;
+        if (target) activateTab(target);
       });
     });
+
+    activateTab("single");
 
     singleForm.addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -571,6 +638,66 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         filename: `${month}.md`,
         content: editContentInput.value,
       });
+    });
+
+    function insertAtCursor(textarea: HTMLTextAreaElement, text: string) {
+      const start = textarea.selectionStart ?? textarea.value.length;
+      const end = textarea.selectionEnd ?? textarea.value.length;
+      textarea.value =
+        textarea.value.slice(0, start) + text + textarea.value.slice(end);
+      const cursor = start + text.length;
+      textarea.selectionStart = textarea.selectionEnd = cursor;
+      textarea.focus();
+    }
+
+    mediaFileInput.addEventListener("change", async () => {
+      const file = mediaFileInput.files?.[0];
+      if (!file) return;
+
+      const password = getStoredPassword();
+      if (!password) {
+        mediaFileInput.value = "";
+        showLoginUI();
+        return;
+      }
+
+      mediaUploadStatus.textContent = "アップロード中…";
+
+      const formData = new FormData();
+      formData.append("password", password);
+      formData.append("file", file);
+
+      const res = await fetch("/.netlify/functions/media-upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json().catch(() => ({
+        success: false,
+        message: "サーバーからの応答を読み取れませんでした",
+      }));
+
+      mediaFileInput.value = "";
+      mediaUploadStatus.textContent = "";
+
+      if (res.status === 401) {
+        clearStoredPassword();
+        showLoginUI("パスワードが違います。もう一度入力してください。");
+        return;
+      }
+
+      if (!result.success) {
+        setFeedback(result.message ?? "アップロードに失敗しました", false);
+        return;
+      }
+
+      const contentType: string = result.contentType ?? "";
+      const snippet = contentType.startsWith("image/")
+        ? `![](${result.url})`
+        : `[${result.filename}](${result.url})`;
+
+      insertAtCursor(tabTextareas[currentTab] ?? singleContentInput, snippet);
+      setFeedback(`アップロードしました: ${result.filename}`, true);
     });
 
     if (getStoredPassword()) {
