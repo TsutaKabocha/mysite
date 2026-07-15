@@ -713,12 +713,18 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       errorMessage?: string;
     }
 
-    interface UploadResult {
+    interface PresignResult {
       success: boolean;
       message?: string;
+      uploadUrl?: string;
       url?: string;
       filename?: string;
       contentType?: string;
+    }
+
+    interface PutResult {
+      success: boolean;
+      message?: string;
     }
 
     let uploadQueue: QueueItem[] = [];
@@ -757,14 +763,53 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
     }
 
-    function uploadFileWithProgress(
+    // Netlify Functionsの同期リクエストは6MB(バイナリは実質4.5MB)までしか受け付けられず、
+    // 動画などの大きいファイルをそのままPOSTすると本文がプラットフォーム側で拒否され、
+    // JSONではないレスポンスが返って「サーバーからの応答を読み取れませんでした」になっていた。
+    // そのためファイル本体はこの関数を経由させず、署名付きURLをJSONで取得してから
+    // ブラウザからR2へ直接PUTする(この関数へのリクエストは常に小さいJSONのみ)。
+    async function requestUploadUrl(
       file: File,
-      password: string,
+      password: string
+    ): Promise<PresignResult> {
+      try {
+        const res = await fetch("/.netlify/functions/media-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            password,
+            filename: file.name,
+            contentType: file.type || "application/octet-stream",
+            size: file.size,
+          }),
+        });
+
+        const result = await res.json().catch(() => ({
+          success: false,
+          message: "サーバーからの応答を読み取れませんでした",
+        }));
+
+        if (res.status === 401) {
+          clearStoredPassword();
+          showLoginUI("パスワードが違います。もう一度入力してください。");
+        }
+
+        return result;
+      } catch {
+        return { success: false, message: "通信エラーが発生しました" };
+      }
+    }
+
+    function putFileWithProgress(
+      uploadUrl: string,
+      file: File,
+      contentType: string,
       onProgress: (percent: number) => void
-    ): Promise<UploadResult> {
+    ): Promise<PutResult> {
       return new Promise((resolve) => {
         const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/.netlify/functions/media-upload");
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", contentType);
 
         xhr.upload.addEventListener("progress", (e) => {
           if (e.lengthComputable) {
@@ -773,30 +818,21 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         });
 
         xhr.addEventListener("load", () => {
-          let result: UploadResult;
-          try {
-            result = JSON.parse(xhr.responseText);
-          } catch {
-            result = {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve({ success: true });
+          } else {
+            resolve({
               success: false,
-              message: "サーバーからの応答を読み取れませんでした",
-            };
+              message: `R2へのアップロードに失敗しました(status ${xhr.status})`,
+            });
           }
-          if (xhr.status === 401) {
-            clearStoredPassword();
-            showLoginUI("パスワードが違います。もう一度入力してください。");
-          }
-          resolve(result);
         });
 
         xhr.addEventListener("error", () => {
-          resolve({ success: false, message: "通信エラーが発生しました" });
+          resolve({ success: false, message: "R2への通信エラーが発生しました" });
         });
 
-        const formData = new FormData();
-        formData.append("password", password);
-        formData.append("file", file);
-        xhr.send(formData);
+        xhr.send(file);
       });
     }
 
@@ -820,31 +856,50 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         return;
       }
 
-      const result = await uploadFileWithProgress(
+      const presign = await requestUploadUrl(next.file, password);
+
+      if (
+        !presign.success ||
+        !presign.uploadUrl ||
+        !presign.url ||
+        !presign.filename
+      ) {
+        next.status = "error";
+        next.errorMessage = presign.message ?? "アップロードに失敗しました";
+        renderQueue();
+        isUploading = false;
+        processQueue();
+        return;
+      }
+
+      const contentType =
+        presign.contentType || next.file.type || "application/octet-stream";
+
+      const putResult = await putFileWithProgress(
+        presign.uploadUrl,
         next.file,
-        password,
+        contentType,
         (percent) => {
           next.progress = percent;
           renderQueue();
         }
       );
 
-      if (!result.success || !result.url || !result.filename) {
+      if (!putResult.success) {
         next.status = "error";
-        next.errorMessage = result.message ?? "アップロードに失敗しました";
+        next.errorMessage = putResult.message ?? "アップロードに失敗しました";
         renderQueue();
       } else {
         next.status = "done";
         next.progress = 100;
         renderQueue();
 
-        const contentType = result.contentType ?? "";
         const snippet = contentType.startsWith("image/")
-          ? `![${result.filename}](${result.url})`
-          : `[${result.filename}](${result.url})`;
+          ? `![${presign.filename}](${presign.url})`
+          : `[${presign.filename}](${presign.url})`;
 
         insertAtCursor(tabTextareas[currentTab] ?? singleContentInput, snippet);
-        setFeedback(`アップロードしました: ${result.filename}`, true);
+        setFeedback(`アップロードしました: ${presign.filename}`, true);
 
         const doneId = next.id;
         setTimeout(() => {
