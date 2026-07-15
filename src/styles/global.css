@@ -6,8 +6,16 @@
 @import "https://cdn.jsdelivr.net/npm/yakuhanjp@4.1.1/dist/css/yakuhanjp_s.css";
 
 :root {
-  /* === Brand === */
-  --ncom-color-red: #e60012; /* シグネチャー赤。CTA・強調 */
+  /* === Brand (Primary) === */
+  --color-primary: #00a728; /* MOS Green: CTA・強調 */
+  --color-primary-dark: #006436; /* MOS Green Dark: 強調見出し・グリーン面上テキスト */
+  --color-primary-deeper: #004924; /* MOS Green Deeper: ダークセクション */
+  --color-primary-darkest: #002614; /* MOS Green Darkest: フッター背景等 */
+  --color-primary-pale: #d9f2df; /* MOS Green Pale: 薄いグリーン背景・アクセント面 */
+  --color-secondary: #ff7e47; /* MOS Orange: サブアクション */
+
+  /* === Danger（エラー表示専用。ブランドアクセントからは分離） === */
+  --ncom-color-red: #e60012;
   --ncom-color-deep-red: #cf0001; /* プレス時の濃い赤 */
 
   /* === Neutral === */
@@ -200,7 +208,7 @@ h3,
   height: 48px;
   border: none;
   border-radius: 2px;
-  background-color: var(--ncom-color-red);
+  background-color: var(--color-primary);
   color: var(--ncom-color-white);
   font-family: var(--ncom-ff-ja);
   font-size: 16px;
@@ -212,7 +220,7 @@ h3,
 }
 
 .ncom-c-cta-btn:hover {
-  background-color: var(--ncom-color-deep-red);
+  background-color: var(--color-primary-dark);
   opacity: 1;
 }
 

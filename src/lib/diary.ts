@@ -1,3 +1,15 @@
+// "2026-07" → "2026.7"（ゼロ埋めなしのコンパクト表記）
+export function formatYearMonthCompact(yearMonth: string): string {
+  const [y, m] = yearMonth.split("-");
+  return `${y}.${Number(m)}`;
+}
+
+// "2026-07" → "2026年7月"
+export function formatYearMonthLong(yearMonth: string): string {
+  const [y, m] = yearMonth.split("-");
+  return `${y}年${Number(m)}月`;
+}
+
 export interface DiaryGroup {
   heading: string;
   bodies: string[];

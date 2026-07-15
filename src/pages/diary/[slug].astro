@@ -2,7 +2,11 @@
 import { getCollection } from "astro:content";
 import { marked } from "marked";
 import BaseLayout from "../../layouts/BaseLayout.astro";
-import { parseDiaryEntries } from "../../lib/diary";
+import {
+  parseDiaryEntries,
+  formatYearMonthCompact,
+  formatYearMonthLong,
+} from "../../lib/diary";
 
 export async function getStaticPaths() {
   const entries = await getCollection("diary");
@@ -15,47 +19,75 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const diaryGroups = parseDiaryEntries(entry.body ?? "");
 
-const allEntries = (await getCollection("diary")).sort((a, b) =>
-  b.data.yearMonth.localeCompare(a.data.yearMonth)
+const allEntries = await getCollection("diary");
+const sortedAscending = [...allEntries].sort((a, b) =>
+  a.data.yearMonth.localeCompare(b.data.yearMonth)
 );
+const sortedDescending = [...sortedAscending].reverse();
+
+const currentIndex = sortedAscending.findIndex((item) => item.id === entry.id);
+const prevEntry = currentIndex > 0 ? sortedAscending[currentIndex - 1] : null;
+const nextEntry =
+  currentIndex >= 0 && currentIndex < sortedAscending.length - 1
+    ? sortedAscending[currentIndex + 1]
+    : null;
 ---
 
 <BaseLayout title={entry.data.title} description={entry.data.description}>
-  <div class="ncom-l-container diary-page">
-    <aside class="diary-nav">
-      <h2 class="diary-nav__heading">月別アーカイブ</h2>
+  <div class="diary-page">
+    <nav class="diary-nav" aria-label="月別アーカイブ">
       <ul class="diary-nav__list">
         {
-          allEntries.map((item) => (
+          sortedDescending.map((item) => (
             <li>
               <a
                 href={`/diary/${item.id}/`}
                 class="diary-nav__link"
                 aria-current={item.id === entry.id ? "page" : undefined}
               >
-                {item.data.yearMonth.replace("-", ".")}
+                {formatYearMonthCompact(item.data.yearMonth)}
               </a>
             </li>
           ))
         }
       </ul>
-    </aside>
+    </nav>
 
     <article class="diary-article">
-      <p class="diary-article__yearmonth">
-        {entry.data.yearMonth.replace("-", ".")}
-      </p>
-      <h1>{entry.data.title}</h1>
-      {
-        entry.data.description && (
-          <p class="diary-article__desc">{entry.data.description}</p>
-        )
-      }
+      <div class="diary-header">
+        {
+          prevEntry && (
+            <a
+              class="diary-header__nav diary-header__nav--prev"
+              href={`/diary/${prevEntry.id}/`}
+            >
+              ◀ {formatYearMonthCompact(prevEntry.data.yearMonth)}
+            </a>
+          )
+        }
+        <p class="diary-header__title">
+          {formatYearMonthLong(entry.data.yearMonth)}
+        </p>
+        {
+          nextEntry && (
+            <a
+              class="diary-header__nav diary-header__nav--next"
+              href={`/diary/${nextEntry.id}/`}
+            >
+              {formatYearMonthCompact(nextEntry.data.yearMonth)} ▶
+            </a>
+          )
+        }
+      </div>
+
       <div class="diary-article__body">
         {
           diaryGroups.map((group) => (
             <section class="diary-entry">
-              <h2>{group.heading}</h2>
+              <h2 class="diary-entry__heading">
+                <span class="diary-entry__heading-text">{group.heading}</span>
+                <span class="diary-entry__heading-rule" aria-hidden="true" />
+              </h2>
               {group.bodies.map((body) => (
                 <div class="diary-entry__post" set:html={marked.parse(body)} />
               ))}
@@ -68,23 +100,20 @@ const allEntries = (await getCollection("diary")).sort((a, b) =>
 
   <style>
     .diary-page {
+      max-width: 1200px;
+      margin: 0 auto;
       display: grid;
-      grid-template-columns: 200px 1fr;
-      gap: 48px;
+      grid-template-columns: 1fr min(720px, 100%) 1fr;
+      column-gap: 40px;
       padding: 48px 24px 96px;
     }
 
     .diary-nav {
+      grid-column: 1;
+      justify-self: end;
+      align-self: start;
       position: sticky;
       top: calc(var(--ncom-header-height) + 24px);
-      align-self: start;
-    }
-
-    .diary-nav__heading {
-      margin-bottom: 16px;
-      color: var(--ncom-color-txt-sub);
-      font-size: 12px;
-      letter-spacing: 0.03em;
     }
 
     .diary-nav__list {
@@ -97,11 +126,11 @@ const allEntries = (await getCollection("diary")).sort((a, b) =>
 
     .diary-nav__link {
       display: block;
-      padding: 10px 12px;
+      padding: 8px 12px;
       border-left: 2px solid transparent;
       color: var(--ncom-color-txt);
       font-family: var(--ncom-ff-roboto);
-      font-size: 16px;
+      font-size: 15px;
       text-decoration: none;
     }
 
@@ -111,22 +140,56 @@ const allEntries = (await getCollection("diary")).sort((a, b) =>
     }
 
     .diary-nav__link[aria-current="page"] {
-      border-left-color: var(--ncom-color-red);
-      color: var(--ncom-color-red);
+      border-left-color: var(--color-primary);
+      color: var(--color-primary);
       font-weight: 700;
     }
 
-    .diary-article__yearmonth {
-      margin: 0 0 8px;
-      color: var(--ncom-color-txt-sub);
-      font-family: var(--ncom-ff-roboto);
-      font-size: 38px;
-      line-height: 1;
+    .diary-article {
+      grid-column: 2;
+      min-width: 0;
     }
 
-    .diary-article__desc {
-      margin: 16px 0 0;
+    .diary-header {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: baseline;
+      gap: 16px;
+    }
+
+    .diary-header__nav {
       color: var(--ncom-color-txt-sub);
+      font-family: var(--ncom-ff-roboto);
+      font-size: 14px;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .diary-header__nav:hover {
+      color: var(--color-primary);
+      opacity: 1;
+    }
+
+    .diary-header__nav--prev {
+      grid-column: 1;
+      justify-self: start;
+    }
+
+    .diary-header__nav--next {
+      grid-column: 3;
+      justify-self: end;
+    }
+
+    .diary-header__title {
+      grid-column: 2;
+      margin: 0;
+      color: var(--ncom-color-heading);
+      font-family: var(--ncom-ff-ja);
+      font-size: 30px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      text-align: center;
+      white-space: nowrap;
     }
 
     .diary-article__body {
@@ -135,13 +198,28 @@ const allEntries = (await getCollection("diary")).sort((a, b) =>
       border-top: 1px solid var(--ncom-color-gray-300);
     }
 
-    .diary-article__body :global(h2) {
-      margin-top: 40px;
-      margin-bottom: 8px;
+    .diary-entry__heading {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin: 40px 0 8px;
+      color: var(--ncom-color-txt-sub);
+      font-size: 0.85em;
     }
 
-    .diary-article__body :global(.diary-entry:first-child h2) {
+    .diary-entry:first-child .diary-entry__heading {
       margin-top: 0;
+    }
+
+    .diary-entry__heading-text {
+      flex-shrink: 0;
+    }
+
+    .diary-entry__heading-rule {
+      flex: 1 1 auto;
+      align-self: center;
+      height: 1px;
+      background-color: var(--ncom-color-gray-300);
     }
 
     .diary-article__body :global(p) {
@@ -160,7 +238,10 @@ const allEntries = (await getCollection("diary")).sort((a, b) =>
       }
 
       .diary-nav {
+        grid-column: 1;
+        justify-self: stretch;
         position: static;
+        margin-bottom: 24px;
       }
 
       .diary-nav__list {
@@ -169,8 +250,16 @@ const allEntries = (await getCollection("diary")).sort((a, b) =>
         gap: 4px;
       }
 
-      .diary-article__yearmonth {
-        font-size: 28px;
+      .diary-article {
+        grid-column: 1;
+      }
+
+      .diary-header__title {
+        font-size: 22px;
+      }
+
+      .diary-header__nav {
+        font-size: 13px;
       }
     }
   </style>
