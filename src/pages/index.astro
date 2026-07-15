@@ -1,20 +1,22 @@
 ---
-import { getCollection } from "astro:content";
 import BaseLayout from "../layouts/BaseLayout.astro";
 
-const entries = (await getCollection("diary")).sort((a, b) =>
-  b.data.yearMonth.localeCompare(a.data.yearMonth)
-);
+// 月別日記一覧セクションは工事中のため一時非表示。復活させる場合は
+// import { getCollection } from "astro:content"; を戻した上で下記を有効化する。
+// const entries = (await getCollection("diary")).sort((a, b) =>
+//   b.data.yearMonth.localeCompare(a.data.yearMonth)
+// );
 ---
 
 <BaseLayout title="蔦南瓜">
   <section class="hero">
     <div class="ncom-l-container">
       <h1>蔦南瓜</h1>
-      <p class="hero__lead">月ごとの出来事をゆっくり書き残していく日記サイトです。</p>
+      <p class="hero__lead">こんにちは！ただいま工事中のためお待ちください</p>
     </div>
   </section>
 
+  <!-- 月別日記一覧セクション(工事中のため一時非表示。将来復活予定)
   <section class="diary-list">
     <div class="ncom-l-container">
       <h2 class="diary-list__heading">月別日記一覧</h2>
@@ -41,6 +43,7 @@ const entries = (await getCollection("diary")).sort((a, b) =>
       </ul>
     </div>
   </section>
+  -->
 
   <style>
     .hero {
