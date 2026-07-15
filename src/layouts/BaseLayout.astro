@@ -138,6 +138,10 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
       }
 
       [data-theme="dark"] .site-header__nav a {
+        color: var(--color-text);
+      }
+
+      [data-theme="dark"] .site-header__nav a[aria-current="page"] {
         color: var(--color-primary-bright);
       }
 
