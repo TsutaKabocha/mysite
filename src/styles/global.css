@@ -132,10 +132,16 @@ svg {
 a {
   color: inherit;
   text-decoration: underline;
+  transition: color 0.15s ease;
 }
 
-a:hover {
-  opacity: 0.7;
+/* クリック可能なテキストリンクは hover で深緑に。
+   ボタン化されたリンク(.ncom-c-cta-btn / .ncom-c-link-btn)は
+   それぞれ専用の hover 表現を持つため対象から除外する */
+.diary-nav__link:hover,
+nav a:hover,
+a:hover:not(.ncom-c-cta-btn):not(.ncom-c-link-btn) {
+  color: var(--color-primary-dark);
 }
 
 ul,
