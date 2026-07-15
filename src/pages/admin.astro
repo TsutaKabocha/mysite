@@ -302,11 +302,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     .media-queue__item--done .media-queue__meta {
-      color: #1b7a2e;
+      color: var(--color-success-text);
     }
 
     .media-queue__item--error {
-      background-color: #fdecec;
+      background-color: var(--color-danger-bg);
     }
 
     .media-queue__item--error .media-queue__meta {
@@ -379,13 +379,13 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     .feedback--error {
-      background-color: #fdecec;
+      background-color: var(--color-danger-bg);
       color: var(--ncom-color-deep-red);
     }
 
     .feedback--success {
-      background-color: #eaf7ec;
-      color: #1b7a2e;
+      background-color: var(--color-success-bg);
+      color: var(--color-success-text);
     }
   </style>
 

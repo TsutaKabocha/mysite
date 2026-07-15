@@ -6,8 +6,19 @@
 @import "https://cdn.jsdelivr.net/npm/yakuhanjp@4.1.1/dist/css/yakuhanjp_s.css";
 
 :root {
+  /* === Theme（ライト = デフォルト。ダークモードは [data-theme="dark"] で上書き） === */
+  --color-bg: #ffffff;
+  --color-text: #3c3c3c;
+  --color-text-sub: #8c8c8c;
+  --color-text-faint: #b0b0b0; /* text-sub よりさらに薄いテキスト(日付見出し等) */
+  --color-surface: #f8f7f6;
+  --color-border: #e6e6e6;
+  --color-success-bg: #eaf7ec;
+  --color-success-text: #1b7a2e;
+  --color-danger-bg: #fdecec;
+
   /* === Brand (Primary) === */
-  --color-primary: #00a728; /* MOS Green: CTA・強調 */
+  --color-primary: #00a728; /* MOS Green: CTA・強調。ダークモードでもこの値を維持 */
   --color-primary-dark: #006436; /* MOS Green Dark: 強調見出し・グリーン面上テキスト */
   --color-primary-deeper: #004924; /* MOS Green Deeper: ダークセクション */
   --color-primary-darkest: #002614; /* MOS Green Darkest: フッター背景等 */
@@ -18,21 +29,21 @@
   --ncom-color-red: #e60012;
   --ncom-color-deep-red: #cf0001; /* プレス時の濃い赤 */
 
-  /* === Neutral === */
+  /* === Neutral（--color-* を参照し、テーマに応じて自動的に変化する） === */
   --ncom-color-white: #fff;
   --ncom-color-black: #000;
   --ncom-color-gray: #c8c8c8;
-  --ncom-color-gray-100: #f8f7f6; /* 最薄の背景 */
-  --ncom-color-gray-300: #e6e6e6; /* 中間グレー */
+  --ncom-color-gray-100: var(--color-surface); /* 最薄の背景 */
+  --ncom-color-gray-300: var(--color-border); /* 中間グレー */
   --ncom-color-gray-500: #d9d9d9; /* やや濃いグレー */
-  --ncom-color-blue-gray: #e6e6e6;
+  --ncom-color-blue-gray: var(--ncom-color-gray-300);
 
   /* === Text === */
   --ncom-color-heading: #1b1b1b; /* 見出し本色 */
-  --ncom-color-txt: #3c3c3c; /* 本文 */
-  --ncom-color-txt-sub: #8c8c8c; /* 補足・キャプション */
+  --ncom-color-txt: var(--color-text); /* 本文 */
+  --ncom-color-txt-sub: var(--color-text-sub); /* 補足・キャプション */
 
-  /* === Accent === */
+  /* === Accent（現状未使用のトークン。テーマ非対応のまま維持） === */
   --ncom-color-gold: #9d7c00;
   --ncom-color-light-blue: #00a5e6;
   --ncom-color-yellow: #fff000;
@@ -41,9 +52,9 @@
   --ncom-color-card: #808088;
 
   /* === Background Roles === */
-  --ncom-bg-page: #ffffff;
-  --ncom-bg-surface-100: #f8f7f6;
-  --ncom-bg-surface-300: #e6e6e6;
+  --ncom-bg-page: var(--color-bg);
+  --ncom-bg-surface-100: var(--color-surface);
+  --ncom-bg-surface-300: var(--color-border);
   --ncom-bg-footer: #f2f2f2;
 
   /* === Typography === */
@@ -60,6 +71,25 @@
 
   /* === leading-trim トークン === */
   --ncom-leading-trim: calc((1em - 1lh) / 2);
+}
+
+[data-theme="dark"] {
+  /* --color-primary 系はダークモードでも変更せず #00a728 のまま維持する(ここでは上書きしない) */
+  --color-bg: #1a1a1a;
+  --color-text: #e0e0e0;
+  --color-text-sub: #888888;
+  --color-text-faint: #5a5a5a;
+  --color-surface: #2a2a2a;
+  --color-border: #3a3a3a;
+  --color-success-bg: #16321f;
+  --color-success-text: #4caf6a;
+  --color-danger-bg: #3a1a1a;
+
+  --ncom-color-red: #ff4d4d;
+  --ncom-color-deep-red: #ff6b6b;
+  --ncom-color-heading: #f5f5f5;
+  --ncom-color-gray-500: #4a4a4a;
+  --ncom-bg-footer: #222222;
 }
 
 /* ==========================================================================

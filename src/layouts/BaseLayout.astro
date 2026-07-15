@@ -20,6 +20,18 @@ const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
+    <script is:inline>
+      (function () {
+        var STORAGE_KEY = "theme";
+        var stored = localStorage.getItem(STORAGE_KEY);
+        var theme =
+          stored ||
+          (window.matchMedia("(prefers-color-scheme: dark)").matches
+            ? "dark"
+            : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="generator" content={Astro.generator} />
@@ -46,6 +58,14 @@ const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
         <a href="/" class="site-header__logo">{siteName}</a>
         <nav class="site-header__nav">
           <a href="/">ホーム</a>
+          <button
+            type="button"
+            id="theme-toggle"
+            class="theme-toggle"
+            aria-label="ライト/ダークモード切り替え"
+          >
+            🌙
+          </button>
         </nav>
       </div>
     </header>
@@ -98,6 +118,27 @@ const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
         text-decoration: none;
       }
 
+      .theme-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 1px solid var(--ncom-color-gray-500);
+        border-radius: 2px;
+        background: transparent;
+        color: var(--ncom-color-txt);
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .theme-toggle:hover {
+        background-color: var(--ncom-bg-surface-100);
+        opacity: 1;
+      }
+
       .site-main {
         min-height: calc(100vh - var(--ncom-header-height) - 80px);
       }
@@ -115,5 +156,31 @@ const pageTitle = title === siteName ? title : `${title} | ${siteName}`;
         font-size: 13px;
       }
     </style>
+
+    <script>
+      const STORAGE_KEY = "theme";
+      const toggleBtn = document.getElementById(
+        "theme-toggle"
+      ) as HTMLButtonElement;
+
+      function currentTheme(): "light" | "dark" {
+        return document.documentElement.getAttribute("data-theme") === "dark"
+          ? "dark"
+          : "light";
+      }
+
+      function updateToggleIcon() {
+        toggleBtn.textContent = currentTheme() === "dark" ? "☀️" : "🌙";
+      }
+
+      updateToggleIcon();
+
+      toggleBtn.addEventListener("click", () => {
+        const next = currentTheme() === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem(STORAGE_KEY, next);
+        updateToggleIcon();
+      });
+    </script>
   </body>
 </html>
