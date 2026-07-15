@@ -22,6 +22,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </section>
 
     <section id="post-section" class="post-section" hidden>
+      <pre id="bg-text" class="bg-text" aria-hidden="true"></pre>
+
       <div class="post-section__header">
         <h1>日記投稿</h1>
         <button type="button" id="logout-btn" class="logout-btn">ログアウト</button>
@@ -45,6 +47,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           aria-selected="false"
         >
           一括インポート
+        </button>
+        <button
+          type="button"
+          class="tab-btn"
+          data-tab="edit"
+          role="tab"
+          aria-selected="false"
+        >
+          編集
         </button>
       </div>
 
@@ -76,6 +87,26 @@ import BaseLayout from "../layouts/BaseLayout.astro";
             required></textarea>
         </label>
         <button type="submit" class="ncom-c-cta-btn">インポートする</button>
+      </form>
+
+      <form id="edit-form" class="tab-panel" data-tab-panel="edit" hidden>
+        <label class="field">
+          <span class="field__label">編集する月</span>
+          <select id="edit-month-select">
+            <option value="">月を選択してください</option>
+          </select>
+        </label>
+        <label class="field">
+          <span class="field__label">本文（Markdown全体）</span>
+          <textarea
+            id="edit-content"
+            name="content"
+            rows="20"
+            placeholder="月を選択すると読み込まれます"></textarea>
+        </label>
+        <button type="submit" id="edit-save-btn" class="ncom-c-cta-btn" disabled
+          >上書き保存する</button
+        >
       </form>
 
       <p id="post-feedback" class="feedback" hidden></p>
@@ -112,6 +143,28 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       background-color: var(--ncom-bg-surface-300);
       font-family: var(--ncom-ff-ja);
       font-size: 16px;
+    }
+
+    .post-section {
+      position: relative;
+    }
+
+    .bg-text {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--ncom-ff-ja);
+      font-size: 16px;
+      line-height: 1.8;
+      color: var(--ncom-color-txt);
+      opacity: 0.1;
+      pointer-events: none;
+      user-select: none;
     }
 
     .post-section__header {
@@ -189,6 +242,22 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       width: fit-content;
     }
 
+    .field select {
+      height: 48px;
+      padding: 0 16px;
+      border: 1px solid var(--ncom-color-gray-500);
+      border-radius: 2px;
+      background-color: var(--ncom-bg-surface-300);
+      font-family: var(--ncom-ff-ja);
+      font-size: 16px;
+      width: fit-content;
+    }
+
+    .ncom-c-cta-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
     .field textarea {
       padding: 16px;
       border: 1px solid var(--ncom-color-gray-500);
@@ -228,6 +297,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
   <script>
     const STORAGE_KEY = "diary_admin_password";
+    const GITHUB_OWNER = "TsutaKabocha";
+    const GITHUB_REPO = "mysite";
+    const DIARY_DIR = "src/content/diary";
 
     const loginSection = document.getElementById(
       "login-section"
@@ -264,9 +336,89 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       "bulk-content"
     ) as HTMLTextAreaElement;
 
+    const bgText = document.getElementById("bg-text") as HTMLElement;
+
+    const editForm = document.getElementById("edit-form") as HTMLFormElement;
+    const editMonthSelect = document.getElementById(
+      "edit-month-select"
+    ) as HTMLSelectElement;
+    const editContentInput = document.getElementById(
+      "edit-content"
+    ) as HTMLTextAreaElement;
+    const editSaveBtn = document.getElementById(
+      "edit-save-btn"
+    ) as HTMLButtonElement;
+
     const postFeedback = document.getElementById(
       "post-feedback"
     ) as HTMLElement;
+
+    let backgroundLoaded = false;
+    let editMonthsLoaded = false;
+
+    function decodeBase64Utf8(base64: string): string {
+      const binary = atob(base64.replace(/\n/g, ""));
+      const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+      return new TextDecoder("utf-8").decode(bytes);
+    }
+
+    function currentYearMonth(): string {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, "0");
+      return `${y}-${m}`;
+    }
+
+    async function githubGetFileContent(path: string): Promise<string | null> {
+      try {
+        const res = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${path}`
+        );
+        if (!res.ok) return null;
+        const data = (await res.json()) as { content: string };
+        return decodeBase64Utf8(data.content);
+      } catch {
+        return null;
+      }
+    }
+
+    async function githubListDiaryMonths(): Promise<string[]> {
+      try {
+        const res = await fetch(
+          `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${DIARY_DIR}`
+        );
+        if (!res.ok) return [];
+        const data = (await res.json()) as { name: string; type: string }[];
+        return data
+          .filter(
+            (item) => item.type === "file" && /^\d{4}-\d{2}\.md$/.test(item.name)
+          )
+          .map((item) => item.name.replace(/\.md$/, ""))
+          .sort()
+          .reverse();
+      } catch {
+        return [];
+      }
+    }
+
+    async function loadBackgroundText() {
+      const content = await githubGetFileContent(
+        `${DIARY_DIR}/${currentYearMonth()}.md`
+      );
+      if (content) {
+        bgText.textContent = content;
+      }
+    }
+
+    async function populateEditMonths() {
+      const months = await githubListDiaryMonths();
+      for (const month of months) {
+        const option = document.createElement("option");
+        option.value = month;
+        option.textContent = month;
+        editMonthSelect.appendChild(option);
+      }
+    }
 
     function todayIso(): string {
       const now = new Date();
@@ -280,6 +432,14 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       loginSection.hidden = true;
       postSection.hidden = false;
       singleDateInput.value = todayIso();
+      if (!backgroundLoaded) {
+        backgroundLoaded = true;
+        loadBackgroundText();
+      }
+      if (!editMonthsLoaded) {
+        editMonthsLoaded = true;
+        populateEditMonths();
+      }
     }
 
     function showLoginUI(message?: string) {
@@ -312,11 +472,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       postFeedback.classList.toggle("feedback--error", !ok);
     }
 
-    async function submitDiary(body: {
-      date?: string;
-      content: string;
-      mode: "single" | "bulk";
-    }) {
+    async function submitDiary(body: Record<string, unknown>) {
       const password = getStoredPassword();
       if (!password) {
         showLoginUI();
@@ -386,6 +542,35 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         mode: "bulk",
       });
       bulkContentInput.value = "";
+    });
+
+    editMonthSelect.addEventListener("change", async () => {
+      const month = editMonthSelect.value;
+      editSaveBtn.disabled = true;
+      if (!month) {
+        editContentInput.value = "";
+        return;
+      }
+      editContentInput.value = "読み込み中…";
+      const content = await githubGetFileContent(`${DIARY_DIR}/${month}.md`);
+      if (content === null) {
+        editContentInput.value = "";
+        setFeedback("ファイルの取得に失敗しました", false);
+        return;
+      }
+      editContentInput.value = content;
+      editSaveBtn.disabled = false;
+    });
+
+    editForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const month = editMonthSelect.value;
+      if (!month) return;
+      await submitDiary({
+        mode: "overwrite",
+        filename: `${month}.md`,
+        content: editContentInput.value,
+      });
     });
 
     if (getStoredPassword()) {

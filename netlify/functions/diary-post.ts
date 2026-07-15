@@ -4,7 +4,8 @@ interface RequestPayload {
   password?: string;
   date?: string;
   content?: string;
-  mode?: "single" | "bulk";
+  mode?: "single" | "bulk" | "overwrite";
+  filename?: string;
 }
 
 interface DiaryEntry {
@@ -26,7 +27,7 @@ export default async (req: Request, _context: Context) => {
     return json({ success: false, message: "リクエストボディが不正です" }, 400);
   }
 
-  const { password, date, content, mode } = payload ?? {};
+  const { password, date, content, mode, filename } = payload ?? {};
 
   const expectedPassword = process.env.DIARY_PASSWORD;
   if (!expectedPassword) {
@@ -39,9 +40,12 @@ export default async (req: Request, _context: Context) => {
     return json({ success: false, message: "パスワードが違います" }, 401);
   }
 
-  if (mode !== "single" && mode !== "bulk") {
+  if (mode !== "single" && mode !== "bulk" && mode !== "overwrite") {
     return json(
-      { success: false, message: "mode は single または bulk を指定してください" },
+      {
+        success: false,
+        message: "mode は single / bulk / overwrite を指定してください",
+      },
       400
     );
   }
@@ -63,6 +67,42 @@ export default async (req: Request, _context: Context) => {
       { success: false, message: "GITHUB_REPO の形式が不正です (例: owner/repo)" },
       500
     );
+  }
+
+  if (mode === "overwrite") {
+    if (typeof filename !== "string" || !/^\d{4}-\d{2}\.md$/.test(filename)) {
+      return json(
+        { success: false, message: "filename は YYYY-MM.md 形式で指定してください" },
+        400
+      );
+    }
+    if (typeof content !== "string" || content.trim().length === 0) {
+      return json({ success: false, message: "本文が空です" }, 400);
+    }
+
+    const path = `${DIARY_DIR}/${filename}`;
+    try {
+      const existing = await githubGetFile(owner, repo, path, token);
+      await githubPutFile(
+        owner,
+        repo,
+        path,
+        token,
+        `${content.trimEnd()}\n`,
+        existing?.sha,
+        `diary: ${filename} を編集`
+      );
+    } catch (error) {
+      console.error(error);
+      const message =
+        error instanceof Error ? error.message : "GitHubへの書き込みに失敗しました";
+      return json({ success: false, message }, 500);
+    }
+
+    return json({
+      success: true,
+      message: `${filename} を上書き保存しました`,
+    });
   }
 
   let entries: DiaryEntry[];
