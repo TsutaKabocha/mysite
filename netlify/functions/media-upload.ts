@@ -1,5 +1,11 @@
 import type { Context } from "@netlify/functions";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+} from "@aws-sdk/client-s3";
+
+const DEFAULT_SIZE_LIMIT_BYTES = 943718400; // 900MB
 
 export default async (req: Request, _context: Context) => {
   if (req.method !== "POST") {
@@ -53,14 +59,41 @@ export default async (req: Request, _context: Context) => {
     return json({ success: false, message: "file が指定されていません" }, 400);
   }
 
+  const s3 = new S3Client({
+    region: "auto",
+    endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    credentials: { accessKeyId, secretAccessKey },
+  });
+
+  let currentUsage: number;
+  try {
+    currentUsage = await getR2BucketUsageBytes(s3, bucketName);
+  } catch (error) {
+    console.error(error);
+    return json(
+      {
+        success: false,
+        message: "R2使用量の取得に失敗したためアップロードを中止しました",
+      },
+      503
+    );
+  }
+
+  const sizeLimitBytes = getSizeLimitBytes();
+  if (currentUsage + file.size > sizeLimitBytes) {
+    const limitMb = Math.round(sizeLimitBytes / (1024 * 1024));
+    return json(
+      {
+        success: false,
+        message: `R2の使用量上限(${limitMb}MB)を超えるためアップロードできません`,
+      },
+      429
+    );
+  }
+
   const key = buildObjectKey(file.name);
 
   try {
-    const s3 = new S3Client({
-      region: "auto",
-      endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
-      credentials: { accessKeyId, secretAccessKey },
-    });
     const buffer = Buffer.from(await file.arrayBuffer());
     await s3.send(
       new PutObjectCommand({
@@ -86,6 +119,35 @@ export default async (req: Request, _context: Context) => {
     contentType: file.type,
   });
 };
+
+function getSizeLimitBytes(): number {
+  const raw = process.env.R2_SIZE_LIMIT_BYTES;
+  if (!raw) return DEFAULT_SIZE_LIMIT_BYTES;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_SIZE_LIMIT_BYTES;
+}
+
+// バケット内の全オブジェクトを列挙してサイズを合計する(R2にはS3の集計APIがないため)
+async function getR2BucketUsageBytes(
+  s3: S3Client,
+  bucket: string
+): Promise<number> {
+  let totalSize = 0;
+  let continuationToken: string | undefined;
+  do {
+    const res = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        ContinuationToken: continuationToken,
+      })
+    );
+    for (const obj of res.Contents ?? []) {
+      totalSize += obj.Size ?? 0;
+    }
+    continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return totalSize;
+}
 
 // R2上でのオブジェクトキーを生成する(日付ディレクトリ + UUID接頭辞でファイル名衝突を避ける)
 function buildObjectKey(originalFilename: string): string {

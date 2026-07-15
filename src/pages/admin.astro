@@ -65,9 +65,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           type="file"
           id="media-file"
           accept="image/*,audio/*,video/*"
+          multiple
         />
-        <span id="media-upload-status" class="media-upload__status"></span>
       </div>
+      <ul id="media-queue" class="media-queue"></ul>
 
       <form id="single-form" class="tab-panel">
         <label class="field">
@@ -253,9 +254,63 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       font-size: 14px;
     }
 
-    .media-upload__status {
-      color: var(--ncom-color-txt-sub);
+    .media-queue {
+      list-style: none;
+      margin: 0 0 24px;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .media-queue:empty {
+      display: none;
+    }
+
+    .media-queue__item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 16px;
+      border: 1px solid var(--ncom-color-gray-500);
+      border-radius: 2px;
+      background-color: var(--ncom-bg-surface-100);
       font-size: 14px;
+    }
+
+    .media-queue__name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--ncom-color-txt);
+    }
+
+    .media-queue__meta {
+      flex-shrink: 0;
+      color: var(--ncom-color-txt-sub);
+      font-family: var(--ncom-ff-roboto);
+      font-size: 14px;
+    }
+
+    .media-queue__item--uploading {
+      border-color: var(--ncom-color-red);
+    }
+
+    .media-queue__item--uploading .media-queue__meta {
+      color: var(--ncom-color-red);
+    }
+
+    .media-queue__item--done .media-queue__meta {
+      color: #1b7a2e;
+    }
+
+    .media-queue__item--error {
+      background-color: #fdecec;
+    }
+
+    .media-queue__item--error .media-queue__meta {
+      color: var(--ncom-color-deep-red);
     }
 
     .field {
@@ -392,8 +447,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     const mediaFileInput = document.getElementById(
       "media-file"
     ) as HTMLInputElement;
-    const mediaUploadStatus = document.getElementById(
-      "media-upload-status"
+    const mediaQueueList = document.getElementById(
+      "media-queue"
     ) as HTMLElement;
 
     const tabPanels: Record<string, HTMLElement> = {
@@ -650,54 +705,173 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       textarea.focus();
     }
 
-    mediaFileInput.addEventListener("change", async () => {
-      const file = mediaFileInput.files?.[0];
-      if (!file) return;
+    interface QueueItem {
+      id: string;
+      file: File;
+      status: "queued" | "uploading" | "done" | "error";
+      progress: number;
+      errorMessage?: string;
+    }
+
+    interface UploadResult {
+      success: boolean;
+      message?: string;
+      url?: string;
+      filename?: string;
+      contentType?: string;
+    }
+
+    let uploadQueue: QueueItem[] = [];
+    let isUploading = false;
+
+    function formatFileSize(bytes: number): string {
+      if (bytes < 1024) return `${bytes}B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+    }
+
+    function renderQueue() {
+      mediaQueueList.innerHTML = "";
+      for (const item of uploadQueue) {
+        const li = document.createElement("li");
+        li.className = `media-queue__item media-queue__item--${item.status}`;
+
+        const name = document.createElement("span");
+        name.className = "media-queue__name";
+        name.textContent = item.file.name;
+
+        const meta = document.createElement("span");
+        meta.className = "media-queue__meta";
+        if (item.status === "queued") {
+          meta.textContent = formatFileSize(item.file.size);
+        } else if (item.status === "uploading") {
+          meta.textContent = `${item.progress}%`;
+        } else if (item.status === "done") {
+          meta.textContent = "✓";
+        } else {
+          meta.textContent = item.errorMessage ?? "失敗";
+        }
+
+        li.append(name, meta);
+        mediaQueueList.appendChild(li);
+      }
+    }
+
+    function uploadFileWithProgress(
+      file: File,
+      password: string,
+      onProgress: (percent: number) => void
+    ): Promise<UploadResult> {
+      return new Promise((resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/.netlify/functions/media-upload");
+
+        xhr.upload.addEventListener("progress", (e) => {
+          if (e.lengthComputable) {
+            onProgress(Math.round((e.loaded / e.total) * 100));
+          }
+        });
+
+        xhr.addEventListener("load", () => {
+          let result: UploadResult;
+          try {
+            result = JSON.parse(xhr.responseText);
+          } catch {
+            result = {
+              success: false,
+              message: "サーバーからの応答を読み取れませんでした",
+            };
+          }
+          if (xhr.status === 401) {
+            clearStoredPassword();
+            showLoginUI("パスワードが違います。もう一度入力してください。");
+          }
+          resolve(result);
+        });
+
+        xhr.addEventListener("error", () => {
+          resolve({ success: false, message: "通信エラーが発生しました" });
+        });
+
+        const formData = new FormData();
+        formData.append("password", password);
+        formData.append("file", file);
+        xhr.send(formData);
+      });
+    }
+
+    async function processQueue() {
+      if (isUploading) return;
+      const next = uploadQueue.find((item) => item.status === "queued");
+      if (!next) return;
+
+      isUploading = true;
+      next.status = "uploading";
+      next.progress = 0;
+      renderQueue();
 
       const password = getStoredPassword();
       if (!password) {
-        mediaFileInput.value = "";
+        next.status = "error";
+        next.errorMessage = "ログインが必要です";
+        renderQueue();
+        isUploading = false;
         showLoginUI();
         return;
       }
 
-      mediaUploadStatus.textContent = "アップロード中…";
+      const result = await uploadFileWithProgress(
+        next.file,
+        password,
+        (percent) => {
+          next.progress = percent;
+          renderQueue();
+        }
+      );
 
-      const formData = new FormData();
-      formData.append("password", password);
-      formData.append("file", file);
+      if (!result.success || !result.url || !result.filename) {
+        next.status = "error";
+        next.errorMessage = result.message ?? "アップロードに失敗しました";
+        renderQueue();
+      } else {
+        next.status = "done";
+        next.progress = 100;
+        renderQueue();
 
-      const res = await fetch("/.netlify/functions/media-upload", {
-        method: "POST",
-        body: formData,
-      });
+        const contentType = result.contentType ?? "";
+        const snippet = contentType.startsWith("image/")
+          ? `![${result.filename}](${result.url})`
+          : `[${result.filename}](${result.url})`;
 
-      const result = await res.json().catch(() => ({
-        success: false,
-        message: "サーバーからの応答を読み取れませんでした",
-      }));
+        insertAtCursor(tabTextareas[currentTab] ?? singleContentInput, snippet);
+        setFeedback(`アップロードしました: ${result.filename}`, true);
 
+        const doneId = next.id;
+        setTimeout(() => {
+          uploadQueue = uploadQueue.filter((item) => item.id !== doneId);
+          renderQueue();
+        }, 2500);
+      }
+
+      isUploading = false;
+      processQueue();
+    }
+
+    mediaFileInput.addEventListener("change", () => {
+      const files = mediaFileInput.files;
+      if (files && files.length > 0) {
+        for (const file of Array.from(files)) {
+          uploadQueue.push({
+            id: crypto.randomUUID(),
+            file,
+            status: "queued",
+            progress: 0,
+          });
+        }
+        renderQueue();
+        processQueue();
+      }
       mediaFileInput.value = "";
-      mediaUploadStatus.textContent = "";
-
-      if (res.status === 401) {
-        clearStoredPassword();
-        showLoginUI("パスワードが違います。もう一度入力してください。");
-        return;
-      }
-
-      if (!result.success) {
-        setFeedback(result.message ?? "アップロードに失敗しました", false);
-        return;
-      }
-
-      const contentType: string = result.contentType ?? "";
-      const snippet = contentType.startsWith("image/")
-        ? `![](${result.url})`
-        : `[${result.filename}](${result.url})`;
-
-      insertAtCursor(tabTextareas[currentTab] ?? singleContentInput, snippet);
-      setFeedback(`アップロードしました: ${result.filename}`, true);
     });
 
     if (getStoredPassword()) {
