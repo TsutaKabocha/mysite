@@ -1,0 +1,8 @@
+[build.environment]
+  NODE_VERSION = "22.12.0"
+  # R2_PUBLIC_URLは日記記事にアップロード画像のURLとして意図的に埋め込まれる公開URLであり、
+  # 秘匿すべき値ではない。そのままだとNetlifyのシークレットスキャンが誤検知しビルドが失敗するため除外する。
+  SECRETS_SCAN_OMIT_KEYS = "R2_PUBLIC_URL"
+
+[functions]
+  node_bundler = "esbuild"
