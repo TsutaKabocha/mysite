@@ -33,6 +33,7 @@ function registerDiaryRenderer() {
   diaryRendererRegistered = true;
 
   marked.use({
+    breaks: true, // 段落内の単独改行を <br> として出力する(空行のみを段落区切りとする)
     renderer: {
       link(token: Tokens.Link) {
         const ext = getUrlExtension(token.href);
@@ -108,10 +109,84 @@ function registerDiaryRenderer() {
   });
 }
 
+function convertYouTubeUrl(url: string): string | null {
+  const watch = url.match(
+    /^https?:\/\/(?:www\.)?youtube\.com\/watch\?(?:[^\s#]*&)?v=([\w-]+)/i
+  );
+  const short = url.match(/^https?:\/\/(?:www\.)?youtu\.be\/([\w-]+)/i);
+  const id = watch?.[1] ?? short?.[1];
+  if (!id) return null;
+  return `<iframe width="100%" style="aspect-ratio:16/9;border-radius:12px;border:none" src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>`;
+}
+
+function convertNicoVideoUrl(url: string): string | null {
+  const match = url.match(/^https?:\/\/(?:www\.)?nicovideo\.jp\/watch\/(sm\d+)/i);
+  if (!match) return null;
+  return `<iframe width="100%" style="aspect-ratio:16/9;border-radius:12px;border:none" src="https://embed.nicovideo.jp/watch/${match[1]}" allowfullscreen></iframe>`;
+}
+
+function convertTweetUrl(url: string): string | null {
+  const match = url.match(
+    /^https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[^/\s]+\/status\/\d+/i
+  );
+  if (!match) return null;
+  return `<blockquote class="twitter-tweet"><a href="${escapeHtmlAttr(url)}"></a></blockquote>`;
+}
+
+function convertBlueskyUrl(url: string): string | null {
+  const match = url.match(
+    /^https?:\/\/(?:www\.)?bsky\.app\/profile\/[^/\s]+\/post\/[^/\s?#]+/i
+  );
+  if (!match) return null;
+  return `<blockquote class="bluesky-post"><a href="${escapeHtmlAttr(url)}">Blueskyの投稿を見る</a></blockquote>`;
+}
+
+// 単独URL1件をルールに従って変換する(該当なしは通常のMarkdownリンクとして残す)
+function convertBareUrl(url: string): string {
+  return (
+    convertYouTubeUrl(url) ??
+    convertNicoVideoUrl(url) ??
+    convertTweetUrl(url) ??
+    convertBlueskyUrl(url) ??
+    `[${url}](${url})`
+  );
+}
+
+const BARE_URL_PATTERN = /https?:\/\/[^\s<>()[\]]+/g;
+// URL直後に句読点等が続いても取り込まないよう、末尾から切り離して元に戻す
+const TRAILING_PUNCTUATION_PATTERN = /[、。,.!?！？」』"'’”]+$/;
+
+function convertBareUrlsInText(text: string): string {
+  return text.replace(BARE_URL_PATTERN, (url) => {
+    const trailingMatch = url.match(TRAILING_PUNCTUATION_PATTERN);
+    const trailing = trailingMatch ? trailingMatch[0] : "";
+    const cleanUrl = trailing ? url.slice(0, -trailing.length) : url;
+    if (!cleanUrl) return url;
+    return convertBareUrl(cleanUrl) + trailing;
+  });
+}
+
+// 既存の ![alt](url) 画像記法・[text](url) リンク記法はそのまま残し、
+// それ以外の裸のURLだけをルールに従って変換する(Markdownパース前の前処理)
+const MARKDOWN_LINK_OR_IMAGE_PATTERN = /!?\[[^\]]*\]\([^\s)]+\)/g;
+
+function preprocessDiaryUrls(body: string): string {
+  let result = "";
+  let lastIndex = 0;
+  for (const match of body.matchAll(MARKDOWN_LINK_OR_IMAGE_PATTERN)) {
+    const index = match.index ?? 0;
+    result += convertBareUrlsInText(body.slice(lastIndex, index));
+    result += match[0];
+    lastIndex = index + match[0].length;
+  }
+  result += convertBareUrlsInText(body.slice(lastIndex));
+  return result;
+}
+
 // 日記本文のMarkdownをHTMLに変換する(parseDiaryEntries() で分割済みの本文を渡す想定)
 export function renderDiaryMarkdown(body: string): string {
   registerDiaryRenderer();
-  return marked.parse(body) as string;
+  return marked.parse(preprocessDiaryUrls(body)) as string;
 }
 
 // "2026-07" → "2026.7"（ゼロ埋めなしのコンパクト表記）

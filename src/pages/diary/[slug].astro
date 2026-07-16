@@ -17,7 +17,13 @@ export async function getStaticPaths() {
 }
 
 const { entry } = Astro.props;
-const diaryGroups = parseDiaryEntries(entry.body ?? "");
+const diaryGroups = parseDiaryEntries(entry.body ?? "").map((group) => ({
+  ...group,
+  bodies: group.bodies.map((body) => renderDiaryMarkdown(body)),
+}));
+const hasTweetEmbed = diaryGroups.some((group) =>
+  group.bodies.some((html) => html.includes('class="twitter-tweet"'))
+);
 
 const allEntries = await getCollection("diary");
 const sortedAscending = [...allEntries].sort((a, b) =>
@@ -106,11 +112,8 @@ const nextEntry =
                 <span class="diary-entry__heading-text">{group.heading}</span>
                 <span class="diary-entry__heading-rule" aria-hidden="true" />
               </h2>
-              {group.bodies.map((body) => (
-                <div
-                  class="diary-entry__post"
-                  set:html={renderDiaryMarkdown(body)}
-                />
+              {group.bodies.map((html) => (
+                <div class="diary-entry__post" set:html={html} />
               ))}
             </section>
           ))
@@ -122,6 +125,8 @@ const nextEntry =
   <div id="lightbox" class="lightbox">
     <img id="lightbox-img" class="lightbox__img" src="" alt="" />
   </div>
+
+  {hasTweetEmbed && <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>}
 
   <style>
     .diary-page {
@@ -139,9 +144,16 @@ const nextEntry =
       align-self: start;
       position: sticky;
       top: calc(var(--ncom-header-height) + 24px);
-      max-height: calc(100vh - 100px);
+      max-height: 200px;
       overflow-y: auto;
       scrollbar-width: thin;
+      mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 15%,
+        black 85%,
+        transparent 100%
+      );
     }
 
     .diary-nav--mobile {
@@ -254,7 +266,11 @@ const nextEntry =
     }
 
     .diary-article__body :global(p) {
-      margin: 0 0 16px;
+      margin: 0 0 0.4em;
+    }
+
+    .diary-article__body :global(p + p) {
+      margin-top: 1.8em;
     }
 
     .diary-article__body :global(.diary-media) {
