@@ -58,8 +58,10 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       </div>
 
       <div class="top-row">
-        <div class="media-upload">
-          <label class="media-upload__label" for="media-file">メディアを挿入</label>
+        <div class="media-upload" id="media-dropzone">
+          <label class="media-upload__label" for="media-file"
+            >ファイルをドロップまたはクリックして選択</label
+          >
           <input
             type="file"
             id="media-file"
@@ -222,17 +224,23 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       flex-wrap: wrap;
       gap: 12px;
       flex: 1 1 auto;
-      padding: 8px;
-      border: 1px solid var(--ncom-color-gray-500);
-      border-radius: 2px;
+      padding: 12px;
+      border: 2px dashed var(--color-border);
+      border-radius: 8px;
       background-color: var(--ncom-bg-surface-100);
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .media-upload.is-dragover {
+      border-color: var(--color-primary);
+      background: var(--color-primary-pale);
     }
 
     .media-upload__label {
       color: var(--ncom-color-txt-sub);
       font-size: 14px;
       font-weight: 700;
-      white-space: nowrap;
+      cursor: pointer;
     }
 
     .media-upload input[type="file"] {
@@ -457,6 +465,9 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     const mediaFileInput = document.getElementById(
       "media-file"
     ) as HTMLInputElement;
+    const mediaDropzone = document.getElementById(
+      "media-dropzone"
+    ) as HTMLElement;
     const mediaQueueList = document.getElementById(
       "media-queue"
     ) as HTMLElement;
@@ -927,21 +938,42 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       processQueue();
     }
 
-    mediaFileInput.addEventListener("change", () => {
-      const files = mediaFileInput.files;
-      if (files && files.length > 0) {
-        for (const file of Array.from(files)) {
-          uploadQueue.push({
-            id: crypto.randomUUID(),
-            file,
-            status: "queued",
-            progress: 0,
-          });
-        }
-        renderQueue();
-        processQueue();
+    function enqueueFiles(files: FileList) {
+      if (files.length === 0) return;
+      for (const file of Array.from(files)) {
+        uploadQueue.push({
+          id: crypto.randomUUID(),
+          file,
+          status: "queued",
+          progress: 0,
+        });
       }
+      renderQueue();
+      processQueue();
+    }
+
+    mediaFileInput.addEventListener("change", () => {
+      if (mediaFileInput.files) enqueueFiles(mediaFileInput.files);
       mediaFileInput.value = "";
+    });
+
+    mediaDropzone.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      mediaDropzone.classList.add("is-dragover");
+    });
+
+    mediaDropzone.addEventListener("dragleave", (e) => {
+      // ドロップゾーン内の子要素間を移動しただけの場合は解除しない
+      const related = e.relatedTarget;
+      if (related instanceof Node && mediaDropzone.contains(related)) return;
+      mediaDropzone.classList.remove("is-dragover");
+    });
+
+    mediaDropzone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      mediaDropzone.classList.remove("is-dragover");
+      const files = e.dataTransfer?.files;
+      if (files) enqueueFiles(files);
     });
 
     if (getStoredPassword()) {

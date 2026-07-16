@@ -42,21 +42,37 @@ const nextEntry =
 <BaseLayout title={entry.data.title} description={entry.data.description}>
   <div class="diary-page">
     <nav class="diary-nav diary-nav--desktop" aria-label="月別アーカイブ">
-      <ul class="diary-nav__list">
-        {
-          sortedDescending.map((item) => (
-            <li>
-              <a
-                href={`/diary/${item.id}/`}
-                class="diary-nav__link"
-                aria-current={item.id === entry.id ? "page" : undefined}
-              >
-                {formatYearMonthCompact(item.data.yearMonth)}
-              </a>
-            </li>
-          ))
-        }
-      </ul>
+      <button
+        type="button"
+        class="diary-nav__scroll-btn diary-nav__scroll-btn--up"
+        aria-label="上にスクロール"
+      >
+        ▲
+      </button>
+      <div class="diary-nav__scroll">
+        <ul class="diary-nav__list">
+          {
+            sortedDescending.map((item) => (
+              <li>
+                <a
+                  href={`/diary/${item.id}/`}
+                  class="diary-nav__link"
+                  aria-current={item.id === entry.id ? "page" : undefined}
+                >
+                  {formatYearMonthCompact(item.data.yearMonth)}
+                </a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+      <button
+        type="button"
+        class="diary-nav__scroll-btn diary-nav__scroll-btn--down"
+        aria-label="下にスクロール"
+      >
+        ▼
+      </button>
     </nav>
 
     <article class="diary-article">
@@ -144,16 +160,36 @@ const nextEntry =
       align-self: start;
       position: sticky;
       top: calc(var(--ncom-header-height) + 24px);
+      display: flex;
+      flex-direction: column;
       max-height: 200px;
+    }
+
+    .diary-nav__scroll {
       overflow-y: auto;
-      scrollbar-width: thin;
-      mask-image: linear-gradient(
-        to bottom,
-        transparent 0%,
-        black 15%,
-        black 85%,
-        transparent 100%
-      );
+      scrollbar-width: none;
+    }
+
+    .diary-nav__scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    .diary-nav__scroll-btn {
+      display: block;
+      width: 100%;
+      flex-shrink: 0;
+      border: none;
+      background: none;
+      color: var(--color-primary-dark);
+      font-size: 12px;
+      line-height: 1;
+      padding: 4px 0;
+      cursor: pointer;
+      transition: opacity 0.15s ease;
+    }
+
+    .diary-nav__scroll-btn.is-faded {
+      opacity: 0.3;
     }
 
     .diary-nav--mobile {
@@ -311,6 +347,26 @@ const nextEntry =
       margin: 0;
     }
 
+    .diary-article__body :global(.diary-embed-video) {
+      width: 66.7%;
+      max-width: 100%;
+      margin: 1.5em auto;
+      display: block;
+    }
+
+    .diary-article__body :global(.diary-embed-video iframe) {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 12px;
+      border: none;
+    }
+
+    .diary-article__body :global(.diary-embed-tweet) {
+      display: flex;
+      justify-content: center;
+      margin: 1.5em 0;
+    }
+
     .lightbox {
       display: none;
       position: fixed;
@@ -466,5 +522,37 @@ const nextEntry =
     document
       .querySelector<HTMLElement>('.diary-nav--mobile [aria-current="page"]')
       ?.scrollIntoView({ inline: "center", behavior: "smooth" });
+
+    const NAV_SCROLL_STEP = 60;
+    const desktopNavScroll = document.querySelector<HTMLElement>(
+      ".diary-nav__scroll"
+    );
+    const navScrollUpBtn = document.querySelector<HTMLButtonElement>(
+      ".diary-nav__scroll-btn--up"
+    );
+    const navScrollDownBtn = document.querySelector<HTMLButtonElement>(
+      ".diary-nav__scroll-btn--down"
+    );
+
+    function updateNavScrollButtons() {
+      if (!desktopNavScroll || !navScrollUpBtn || !navScrollDownBtn) return;
+      const { scrollTop, scrollHeight, clientHeight } = desktopNavScroll;
+      navScrollUpBtn.classList.toggle("is-faded", scrollTop <= 0);
+      navScrollDownBtn.classList.toggle(
+        "is-faded",
+        scrollTop + clientHeight >= scrollHeight - 1
+      );
+    }
+
+    if (desktopNavScroll && navScrollUpBtn && navScrollDownBtn) {
+      updateNavScrollButtons();
+      desktopNavScroll.addEventListener("scroll", updateNavScrollButtons);
+      navScrollUpBtn.addEventListener("click", () => {
+        desktopNavScroll.scrollBy({ top: -NAV_SCROLL_STEP, behavior: "smooth" });
+      });
+      navScrollDownBtn.addEventListener("click", () => {
+        desktopNavScroll.scrollBy({ top: NAV_SCROLL_STEP, behavior: "smooth" });
+      });
+    }
   </script>
 </BaseLayout>

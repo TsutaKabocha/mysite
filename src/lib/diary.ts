@@ -116,13 +116,17 @@ function convertYouTubeUrl(url: string): string | null {
   const short = url.match(/^https?:\/\/(?:www\.)?youtu\.be\/([\w-]+)/i);
   const id = watch?.[1] ?? short?.[1];
   if (!id) return null;
-  return `<iframe width="100%" style="aspect-ratio:16/9;border-radius:12px;border:none" src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe>`;
+  return renderEmbedVideoTag(`https://www.youtube.com/embed/${id}`);
 }
 
 function convertNicoVideoUrl(url: string): string | null {
   const match = url.match(/^https?:\/\/(?:www\.)?nicovideo\.jp\/watch\/(sm\d+)/i);
   if (!match) return null;
-  return `<iframe width="100%" style="aspect-ratio:16/9;border-radius:12px;border:none" src="https://embed.nicovideo.jp/watch/${match[1]}" allowfullscreen></iframe>`;
+  return renderEmbedVideoTag(`https://embed.nicovideo.jp/watch/${match[1]}`);
+}
+
+function renderEmbedVideoTag(src: string): string {
+  return `<div class="diary-embed-video"><iframe width="100%" style="aspect-ratio:16/9;border-radius:12px;border:none" src="${escapeHtmlAttr(src)}" allowfullscreen></iframe></div>`;
 }
 
 function convertTweetUrl(url: string): string | null {
@@ -130,7 +134,7 @@ function convertTweetUrl(url: string): string | null {
     /^https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[^/\s]+\/status\/\d+/i
   );
   if (!match) return null;
-  return `<blockquote class="twitter-tweet"><a href="${escapeHtmlAttr(url)}"></a></blockquote>`;
+  return `<div class="diary-embed-tweet"><blockquote class="twitter-tweet"><a href="${escapeHtmlAttr(url)}"></a></blockquote></div>`;
 }
 
 function convertBlueskyUrl(url: string): string | null {
