@@ -81,6 +81,7 @@ export default async (req: Request, _context: Context) => {
     }
 
     const path = `${DIARY_DIR}/${filename}`;
+    const yearMonth = filename.replace(/\.md$/, "");
     try {
       const existing = await githubGetFile(owner, repo, path, token);
       await githubPutFile(
@@ -88,7 +89,7 @@ export default async (req: Request, _context: Context) => {
         repo,
         path,
         token,
-        `${content.trimEnd()}\n`,
+        finalizeDiaryContent(content, yearMonth),
         existing?.sha,
         `diary: ${filename} を編集`
       );
@@ -299,8 +300,8 @@ async function githubPutFile(
 // ==========================================================================
 
 function formatHeading(date: string): string {
-  const [, m, d] = date.split("-");
-  return `## ${Number(m)}月${Number(d)}日`;
+  const [y, m, d] = date.split("-");
+  return `## ${Number(y)}年${Number(m)}月${Number(d)}日`;
 }
 
 function buildFrontmatter(yearMonth: string): string {
@@ -325,9 +326,148 @@ async function appendEntriesToMonth(
     const section = `${formatHeading(entry.date)}\n\n${entry.body}\n`;
     content = `${content.trimEnd()}\n\n${section}`;
   }
-  content = `${content.trimEnd()}\n`;
+  content = finalizeDiaryContent(content, yearMonth);
 
   await githubPutFile(owner, repo, path, token, content, existing?.sha, commitMessage);
+}
+
+// ==========================================================================
+// Markdown整形(日付見出しの正規化・重複除去・日付順ソート・空白の正規化)
+// ==========================================================================
+
+// 見出し文字列から月日を取り出す(先頭に「2026年」等が付いていても無視して月日だけを見る)
+const HEADING_DATE_PATTERN = /(\d+)\s*月\s*(\d+)\s*日/;
+
+function extractHeadingDateKey(heading: string): number | null {
+  const match = heading.match(HEADING_DATE_PATTERN);
+  if (!match) return null;
+  return Number(match[1]) * 100 + Number(match[2]);
+}
+
+// 「##」の付いていない裸の日付行を判定する。6桁(yymmdd)は年も分かるが、
+// 「7月14日」「7/14」「7-14」は年が分からないため呼び出し側で補完する
+function parseDateLikeLine(
+  line: string
+): { year?: number; month: number; day: number } | null {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  const yymmdd = trimmed.match(/^(\d{2})(\d{2})(\d{2})$/);
+  if (yymmdd) {
+    const month = Number(yymmdd[2]);
+    const day = Number(yymmdd[3]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+    return { year: 2000 + Number(yymmdd[1]), month, day };
+  }
+
+  const kanji = trimmed.match(/^(\d{1,2})\s*月\s*(\d{1,2})\s*日$/);
+  const slashOrDash = trimmed.match(/^(\d{1,2})\s*[/-]\s*(\d{1,2})$/);
+  const match = kanji ?? slashOrDash;
+  if (!match) return null;
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { month, day };
+}
+
+// 見出し(##)ではない裸の日付行を "## YYYY年M月D日" 見出しに変換する。
+// 既存の "## ..." 見出し行はそのまま(年の有無に関わらず変更しない)
+function normalizeDateOnlyLines(body: string, fallbackYear: number): string {
+  return body
+    .split(/\r\n|\r|\n/)
+    .map((line) => {
+      if (/^\s*##/.test(line)) return line;
+      const parsed = parseDateLikeLine(line);
+      if (!parsed) return line;
+      const year = parsed.year ?? fallbackYear;
+      return `## ${year}年${parsed.month}月${parsed.day}日`;
+    })
+    .join("\n");
+}
+
+interface DiaryBlock {
+  heading: string;
+  body: string;
+  dateKey: number | null;
+  order: number;
+}
+
+// "## " 見出し単位で本文をブロックに分割する(見出しより前の行は無視する)
+function splitIntoBlocks(body: string): DiaryBlock[] {
+  const lines = body.split(/\r\n|\r|\n/);
+  const blocks: DiaryBlock[] = [];
+  let current: { heading: string; lines: string[] } | null = null;
+  let order = 0;
+
+  const flush = () => {
+    if (!current) return;
+    blocks.push({
+      heading: current.heading,
+      body: current.lines.join("\n").trim(),
+      dateKey: extractHeadingDateKey(current.heading),
+      order: order++,
+    });
+  };
+
+  for (const line of lines) {
+    if (/^##\s+/.test(line)) {
+      flush();
+      current = { heading: line.trim(), lines: [] };
+      continue;
+    }
+    current?.lines.push(line);
+  }
+  flush();
+
+  return blocks;
+}
+
+// 同じ日付(月日)のブロックは最初の見出しにまとめ、日付昇順に並べ替える。
+// 日付を読み取れない見出しは出現順のまま末尾に残す
+function dedupeAndSortBlocks(blocks: DiaryBlock[]): DiaryBlock[] {
+  const merged = new Map<number, DiaryBlock>();
+  const undated: DiaryBlock[] = [];
+
+  for (const block of blocks) {
+    if (block.dateKey === null) {
+      undated.push(block);
+      continue;
+    }
+    const existing = merged.get(block.dateKey);
+    if (existing) {
+      existing.body = existing.body
+        ? `${existing.body}\n\n${block.body}`
+        : block.body;
+    } else {
+      merged.set(block.dateKey, { ...block });
+    }
+  }
+
+  const dated = [...merged.values()].sort((a, b) => a.dateKey! - b.dateKey!);
+  return [...dated, ...undated];
+}
+
+function assembleBody(blocks: DiaryBlock[]): string {
+  return blocks
+    .map((block) => `${block.heading}\n\n${block.body}`.trim())
+    .join("\n\n");
+}
+
+// 投稿・保存時にファイル全体(フロントマター込み)へ適用する整形処理。
+// 日付見出しの正規化 → 重複除去 → 日付順ソート → 空白の正規化 を行う
+function finalizeDiaryContent(content: string, yearMonth: string): string {
+  const year = Number(yearMonth.slice(0, 4));
+  const frontmatterMatch = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+  const frontmatter = frontmatterMatch ? frontmatterMatch[0].trimEnd() : "";
+  const rawBody = frontmatterMatch
+    ? content.slice(frontmatterMatch[0].length)
+    : content;
+
+  const normalizedBody = normalizeDateOnlyLines(rawBody, year);
+  const blocks = dedupeAndSortBlocks(splitIntoBlocks(normalizedBody));
+  const assembledBody = assembleBody(blocks);
+
+  return assembledBody ? `${frontmatter}\n\n${assembledBody}\n` : `${frontmatter}\n`;
 }
 
 function json(body: unknown, status = 200): Response {

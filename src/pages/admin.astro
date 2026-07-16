@@ -57,28 +57,30 @@ import BaseLayout from "../layouts/BaseLayout.astro";
         </button>
       </div>
 
-      <div class="media-upload">
-        <label class="media-upload__label" for="media-file">メディアを挿入</label>
-        <input
-          type="file"
-          id="media-file"
-          accept="image/*,audio/*,video/*"
-          multiple
-        />
+      <div class="top-row">
+        <div class="media-upload">
+          <label class="media-upload__label" for="media-file">メディアを挿入</label>
+          <input
+            type="file"
+            id="media-file"
+            accept="image/*,audio/*,video/*"
+            multiple
+          />
+        </div>
+        <label class="field field--inline" id="date-field">
+          <span class="field__label">日付</span>
+          <input type="date" id="single-date" name="date" form="single-form" required />
+        </label>
       </div>
       <ul id="media-queue" class="media-queue"></ul>
 
       <form id="single-form" class="tab-panel">
         <label class="field">
-          <span class="field__label">日付</span>
-          <input type="date" id="single-date" name="date" required />
-        </label>
-        <label class="field">
           <span class="field__label">本文</span>
           <textarea
             id="single-content"
             name="content"
-            rows="10"
+            rows="5"
             placeholder="今日の出来事を書く"
             required></textarea>
         </label>
@@ -91,7 +93,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
           <textarea
             id="bulk-content"
             name="content"
-            rows="20"
+            rows="8"
             placeholder={"260714\n本文…\n\n段落を分けたい場合は空行を入れる\n\n260715\n翌日の本文…"}
             required></textarea>
         </label>
@@ -158,7 +160,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
     }
 
     .logout-btn {
@@ -179,12 +181,12 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .tabs {
       display: flex;
       gap: 4px;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
       border-bottom: 1px solid var(--ncom-color-gray-300);
     }
 
     .tab-btn {
-      padding: 12px 20px;
+      padding: 8px 16px;
       border: none;
       border-bottom: 2px solid transparent;
       background: transparent;
@@ -203,7 +205,15 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .tab-panel {
       display: none;
       flex-direction: column;
-      gap: 20px;
+      gap: 10px;
+    }
+
+    .top-row {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
     }
 
     .media-upload {
@@ -211,8 +221,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       align-items: center;
       flex-wrap: wrap;
       gap: 12px;
-      margin-bottom: 24px;
-      padding: 16px;
+      flex: 1 1 auto;
+      padding: 8px;
       border: 1px solid var(--ncom-color-gray-500);
       border-radius: 2px;
       background-color: var(--ncom-bg-surface-100);
@@ -232,11 +242,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     .media-queue {
       list-style: none;
-      margin: 0 0 24px;
+      margin: 0 0 12px;
       padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
     }
 
     .media-queue:empty {
@@ -248,7 +258,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 10px 16px;
+      padding: 6px 10px;
       border: 1px solid var(--ncom-color-gray-500);
       border-radius: 2px;
       background-color: var(--ncom-bg-surface-100);
@@ -292,7 +302,11 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .field {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 4px;
+    }
+
+    .field--inline {
+      flex-shrink: 0;
     }
 
     .field__label {
@@ -346,8 +360,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     .feedback {
-      margin-top: 20px;
-      padding: 16px;
+      margin-top: 10px;
+      padding: 10px 16px;
       border-radius: 2px;
       background-color: var(--ncom-bg-surface-100);
       color: var(--ncom-color-txt);
@@ -360,8 +374,29 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     }
 
     .feedback--success {
-      background-color: var(--color-success-bg);
-      color: var(--color-success-text);
+      background-color: var(--color-primary-pale);
+      color: var(--color-primary-dark);
+    }
+
+    #post-feedback {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      z-index: 9999;
+      margin: 0;
+      max-width: min(90vw, 480px);
+      text-align: center;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+      transform: translateX(-50%) translateY(-20px);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+
+    #post-feedback.is-visible {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
     }
   </style>
 
@@ -388,6 +423,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       document.querySelectorAll<HTMLButtonElement>(".tab-btn")
     );
 
+    const dateField = document.getElementById("date-field") as HTMLElement;
     const singleForm = document.getElementById(
       "single-form"
     ) as HTMLFormElement;
@@ -529,11 +565,36 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       sessionStorage.removeItem(STORAGE_KEY);
     }
 
+    const FEEDBACK_DISPLAY_DURATION = 3000; // 表示したまま保持する時間(その後 .is-visible の0.25s transitionでフェードアウト)
+
+    let feedbackHideTimeoutId: number | undefined;
+
     function setFeedback(message: string, ok: boolean) {
+      if (feedbackHideTimeoutId !== undefined) {
+        window.clearTimeout(feedbackHideTimeoutId);
+        feedbackHideTimeoutId = undefined;
+      }
       postFeedback.textContent = message;
       postFeedback.hidden = false;
       postFeedback.classList.toggle("feedback--success", ok);
       postFeedback.classList.toggle("feedback--error", !ok);
+      // 直前にis-visibleを外した直後だとtransitionが発火しないことがあるため、
+      // 強制的にreflowさせてから付与する
+      void postFeedback.offsetHeight;
+      postFeedback.classList.add("is-visible");
+
+      feedbackHideTimeoutId = window.setTimeout(() => {
+        postFeedback.classList.remove("is-visible");
+        feedbackHideTimeoutId = undefined;
+      }, FEEDBACK_DISPLAY_DURATION);
+    }
+
+    function hideFeedback() {
+      if (feedbackHideTimeoutId !== undefined) {
+        window.clearTimeout(feedbackHideTimeoutId);
+        feedbackHideTimeoutId = undefined;
+      }
+      postFeedback.classList.remove("is-visible");
     }
 
     async function submitDiary(body: Record<string, unknown>) {
@@ -574,7 +635,7 @@ import BaseLayout from "../layouts/BaseLayout.astro";
 
     logoutBtn.addEventListener("click", () => {
       clearStoredPassword();
-      postFeedback.hidden = true;
+      hideFeedback();
       showLoginUI();
     });
 
@@ -588,7 +649,8 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       for (const [key, panel] of Object.entries(tabPanels)) {
         panel.style.display = key === target ? "flex" : "none";
       }
-      postFeedback.hidden = true;
+      dateField.style.display = target === "single" ? "flex" : "none";
+      hideFeedback();
     }
 
     tabBtns.forEach((btn) => {
