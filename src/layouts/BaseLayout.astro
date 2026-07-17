@@ -214,5 +214,12 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         updateToggleLabel();
       });
     </script>
+
+    <script>
+      // /lab で切り替えられるエフェクトは全ページで無条件に読み込み、
+      // 各エフェクトが自分でlocalStorageのon/off状態を確認して動作する
+      import { initLabEffects } from "../lib/lab-effects";
+      initLabEffects();
+    </script>
   </body>
 </html>

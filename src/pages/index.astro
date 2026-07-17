@@ -16,6 +16,25 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     </div>
   </section>
 
+  <section class="works-3d">
+    <div class="ncom-l-container">
+      <h2 class="works-3d__heading">作品一覧</h2>
+      <p class="works-3d__hint">
+        ドラッグで空間を回転、カードをクリックすると詳細を表示します
+      </p>
+    </div>
+    <div class="works-3d__stage">
+      <canvas id="works-canvas"></canvas>
+      <div id="works-overlay" class="works-overlay" hidden>
+        <div class="works-overlay__panel">
+          <h3 id="works-overlay-title" class="works-overlay__title"></h3>
+          <p id="works-overlay-desc" class="works-overlay__desc"></p>
+          <p class="works-overlay__hint">別のところをクリックして閉じる</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- 月別日記一覧セクション(工事中のため一時非表示。将来復活予定)
   <section class="diary-list">
     <div class="ncom-l-container">
@@ -53,6 +72,92 @@ import BaseLayout from "../layouts/BaseLayout.astro";
     .hero__lead {
       margin: 16px 0 0;
       color: var(--ncom-color-txt);
+    }
+
+    .works-3d {
+      padding: 24px 0 48px;
+    }
+
+    .works-3d__heading {
+      margin: 0;
+      color: var(--ncom-color-heading);
+      font-family: var(--ncom-ff-ja);
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+
+    .works-3d__hint {
+      margin: 8px 0 0;
+      color: var(--ncom-color-txt-sub);
+      font-size: 13px;
+    }
+
+    .works-3d__stage {
+      position: relative;
+      height: min(50vh, 500px);
+      margin-top: 16px;
+    }
+
+    #works-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: grab;
+      background: transparent;
+    }
+
+    #works-canvas:active {
+      cursor: grabbing;
+    }
+
+    .works-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .works-overlay.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .works-overlay__panel {
+      max-width: min(360px, 84%);
+      padding: 24px 28px;
+      border-radius: 12px;
+      background-color: var(--ncom-bg-page);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+
+    .works-overlay__title {
+      margin: 0;
+      color: var(--ncom-color-heading);
+      font-family: var(--ncom-ff-ja);
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .works-overlay__desc {
+      margin: 12px 0 0;
+      color: var(--ncom-color-txt);
+      font-size: 14px;
+      line-height: 1.8;
+    }
+
+    .works-overlay__hint {
+      margin: 16px 0 0;
+      color: var(--ncom-color-txt-sub);
+      font-size: 12px;
     }
 
     .diary-list {
@@ -131,4 +236,259 @@ import BaseLayout from "../layouts/BaseLayout.astro";
       }
     }
   </style>
+
+  <script>
+    import * as THREE from "three";
+
+    interface Work {
+      title: string;
+      color: string;
+      description: string;
+    }
+
+    // 差し替え用のダミーデータ。実データに置き換える場合はこの配列を編集する
+    const works: Work[] = [
+      { title: "作品1", color: "#4caf50", description: "説明文1" },
+      { title: "作品2", color: "#2196f3", description: "説明文2" },
+      { title: "作品3", color: "#ff7e47", description: "説明文3" },
+      { title: "作品4", color: "#9c27b0", description: "説明文4" },
+      { title: "作品5", color: "#00a728", description: "説明文5" },
+    ];
+
+    const canvas = document.getElementById("works-canvas") as HTMLCanvasElement | null;
+    const stage = canvas?.parentElement as HTMLElement | null;
+    const overlay = document.getElementById("works-overlay") as HTMLElement | null;
+    const overlayTitle = document.getElementById("works-overlay-title") as HTMLElement | null;
+    const overlayDesc = document.getElementById("works-overlay-desc") as HTMLElement | null;
+
+    function initWorksScene(
+      canvasEl: HTMLCanvasElement,
+      stageEl: HTMLElement,
+      overlayEl: HTMLElement,
+      titleEl: HTMLElement,
+      descEl: HTMLElement
+    ) {
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        45,
+        stageEl.clientWidth / stageEl.clientHeight,
+        0.1,
+        100
+      );
+      camera.position.set(0, 0, 9);
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas: canvasEl,
+        antialias: true,
+        alpha: true,
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(stageEl.clientWidth, stageEl.clientHeight, false);
+
+      const group = new THREE.Group();
+      scene.add(group);
+
+      const CARD_WIDTH = 3.2;
+      const CARD_HEIGHT = (CARD_WIDTH * 9) / 16;
+      const RADIUS = 5;
+
+      function createCardTexture(work: Work): THREE.CanvasTexture {
+        const w = 640;
+        const h = 360;
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const ctx = c.getContext("2d")!;
+        ctx.fillStyle = work.color;
+        ctx.fillRect(0, 0, w, h);
+        const gradient = ctx.createLinearGradient(0, 0, 0, h);
+        gradient.addColorStop(0, "rgba(255,255,255,0.2)");
+        gradient.addColorStop(1, "rgba(0,0,0,0.15)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, w, h);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 56px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(work.title, w / 2, h / 2);
+        const texture = new THREE.CanvasTexture(c);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        return texture;
+      }
+
+      interface CardMesh extends THREE.Mesh {
+        userData: {
+          work: Work;
+          baseAngle: number;
+          floatOffset: number;
+          baseY: number;
+        };
+      }
+
+      const cardMeshes: CardMesh[] = works.map((work, i) => {
+        const geometry = new THREE.PlaneGeometry(CARD_WIDTH, CARD_HEIGHT);
+        const material = new THREE.MeshBasicMaterial({
+          map: createCardTexture(work),
+          side: THREE.FrontSide,
+        });
+        const mesh = new THREE.Mesh(geometry, material) as CardMesh;
+        const angle = (i / works.length) * Math.PI * 2;
+        mesh.position.set(Math.sin(angle) * RADIUS, 0, Math.cos(angle) * RADIUS);
+        // 向きはアニメーションループで毎フレームカメラ方向へビルボードするため、ここでは向けない
+        // (円環上に固定の前面を持たせると、回転して奥に回ったカードの文字が裏返って見えてしまうため)
+        mesh.userData = {
+          work,
+          baseAngle: angle,
+          floatOffset: Math.random() * Math.PI * 2,
+          baseY: 0,
+        };
+        group.add(mesh);
+        return mesh;
+      });
+
+      // --- ドラッグ回転(マウス・タッチ共通) ---
+      let isDragging = false;
+      let dragMoved = false;
+      let lastX = 0;
+      let lastY = 0;
+      let autoRotate = true;
+      let targetRotationY = 0;
+      let rotationX = 0;
+
+      function pointerDown(x: number, y: number) {
+        isDragging = true;
+        dragMoved = false;
+        lastX = x;
+        lastY = y;
+        autoRotate = false;
+      }
+
+      function pointerMove(x: number, y: number) {
+        if (!isDragging) return;
+        const dx = x - lastX;
+        const dy = y - lastY;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) dragMoved = true;
+        targetRotationY += dx * 0.006;
+        rotationX = Math.max(-0.35, Math.min(0.35, rotationX + dy * 0.004));
+        lastX = x;
+        lastY = y;
+      }
+
+      function pointerUp() {
+        if (!isDragging) return;
+        isDragging = false;
+        if (!selectedMesh) autoRotate = true;
+      }
+
+      canvasEl.addEventListener("mousedown", (e) => pointerDown(e.clientX, e.clientY));
+      window.addEventListener("mousemove", (e) => pointerMove(e.clientX, e.clientY));
+      window.addEventListener("mouseup", pointerUp);
+
+      canvasEl.addEventListener(
+        "touchstart",
+        (e) => {
+          const t = e.touches[0];
+          if (t) pointerDown(t.clientX, t.clientY);
+        },
+        { passive: true }
+      );
+      canvasEl.addEventListener(
+        "touchmove",
+        (e) => {
+          const t = e.touches[0];
+          if (t) pointerMove(t.clientX, t.clientY);
+        },
+        { passive: true }
+      );
+      canvasEl.addEventListener("touchend", pointerUp);
+      canvasEl.addEventListener("touchcancel", pointerUp);
+
+      // --- カード選択(クリック/タップ) ---
+      const raycaster = new THREE.Raycaster();
+      const pointerNdc = new THREE.Vector2();
+      let selectedMesh: CardMesh | null = null;
+
+      function selectCard(mesh: CardMesh) {
+        selectedMesh = mesh;
+        autoRotate = false;
+        targetRotationY = -mesh.userData.baseAngle;
+        titleEl.textContent = mesh.userData.work.title;
+        descEl.textContent = mesh.userData.work.description;
+        overlayEl.hidden = false;
+        requestAnimationFrame(() => overlayEl.classList.add("is-visible"));
+      }
+
+      function deselectCard() {
+        selectedMesh = null;
+        autoRotate = true;
+        overlayEl.classList.remove("is-visible");
+        window.setTimeout(() => {
+          if (!selectedMesh) overlayEl.hidden = true;
+        }, 250);
+      }
+
+      canvasEl.addEventListener("click", (e) => {
+        if (dragMoved) return; // ドラッグ操作はクリックとみなさない
+        const rect = canvasEl.getBoundingClientRect();
+        pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(pointerNdc, camera);
+        const hits = raycaster.intersectObjects(cardMeshes);
+        if (hits.length > 0) {
+          selectCard(hits[0].object as CardMesh);
+        }
+      });
+
+      overlayEl.addEventListener("click", (e) => {
+        if (e.target === overlayEl) deselectCard();
+      });
+
+      // --- リサイズ ---
+      function handleResize() {
+        const w = stageEl.clientWidth;
+        const h = stageEl.clientHeight;
+        if (w === 0 || h === 0) return;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h, false);
+      }
+      window.addEventListener("resize", handleResize);
+
+      // --- アニメーションループ ---
+      let lastTime = 0;
+      function animate(time: number) {
+        const dt = Math.min((time - lastTime) / 1000, 0.1);
+        lastTime = time;
+
+        if (autoRotate) targetRotationY += dt * 0.15;
+        group.rotation.y += (targetRotationY - group.rotation.y) * 0.08;
+        group.rotation.x += (rotationX - group.rotation.x) * 0.08;
+        group.updateMatrixWorld(true);
+
+        for (const mesh of cardMeshes) {
+          const isSelected = mesh === selectedMesh;
+          const floatY = Math.sin(time * 0.0012 + mesh.userData.floatOffset) * 0.15;
+          mesh.position.y = mesh.userData.baseY + (isSelected ? 0 : floatY);
+          const targetScale = isSelected ? 1.25 : 1;
+          mesh.scale.x += (targetScale - mesh.scale.x) * 0.1;
+          mesh.scale.y += (targetScale - mesh.scale.y) * 0.1;
+          // 常にカメラの方を向かせ、文字が裏返って見えるのを防ぐ(ビルボード)
+          mesh.lookAt(camera.position);
+        }
+
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+      requestAnimationFrame(animate);
+    }
+
+    if (canvas && stage && overlay && overlayTitle && overlayDesc) {
+      try {
+        initWorksScene(canvas, stage, overlay, overlayTitle, overlayDesc);
+      } catch (err) {
+        console.warn("WebGLの初期化に失敗したため作品カードを非表示にします", err);
+        stage.hidden = true;
+      }
+    }
+  </script>
 </BaseLayout>
