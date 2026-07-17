@@ -134,7 +134,9 @@ function convertTweetUrl(url: string): string | null {
     /^https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[^/\s]+\/status\/\d+/i
   );
   if (!match) return null;
-  return `<div class="diary-embed-tweet"><blockquote class="twitter-tweet"><a href="${escapeHtmlAttr(url)}"></a></blockquote></div>`;
+  // data-theme はビルド時点ではクライアントのテーマが分からないため light を既定にし、
+  // 実際の出し分けは BaseLayout.astro のクライアント側スクリプトが担う
+  return `<div class="diary-embed-tweet"><blockquote class="twitter-tweet" data-theme="light"><a href="${escapeHtmlAttr(url)}"></a></blockquote></div>`;
 }
 
 function convertBlueskyUrl(url: string): string | null {

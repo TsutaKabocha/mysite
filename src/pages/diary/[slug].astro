@@ -142,7 +142,14 @@ const nextEntry =
     <img id="lightbox-img" class="lightbox__img" src="" alt="" />
   </div>
 
-  {hasTweetEmbed && <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>}
+  {hasTweetEmbed && (
+    <script
+      async
+      src="https://platform.twitter.com/widgets.js"
+      charset="utf-8"
+      data-astro-rerun
+    />
+  )}
 
   <style>
     .diary-page {
@@ -467,6 +474,7 @@ const nextEntry =
       .diary-article__body :global(.diary-image-pair) {
         width: 83%;
         flex-direction: row;
+        justify-content: center;
       }
 
       .diary-article__body :global(.diary-image-pair .diary-media--image) {
@@ -571,5 +579,13 @@ const nextEntry =
         desktopNavScroll.scrollBy({ top: NAV_SCROLL_STEP, behavior: "smooth" });
       });
     }
+
+    // View Transitions後、差し替え後のDOMに残った<video>/<audio>を
+    // 確実に再ロードする(ソースが同じでも再生位置等の内部状態をリセットする)
+    document.addEventListener("astro:page-load", () => {
+      document.querySelectorAll("video, audio").forEach((el) => {
+        (el as HTMLMediaElement).load();
+      });
+    });
   </script>
 </BaseLayout>

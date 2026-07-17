@@ -227,6 +227,20 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         color: var(--color-primary-bright);
       }
 
+      .theme-ripple {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: var(--ripple-color);
+        clip-path: circle(0px at var(--x) var(--y));
+        transition: clip-path 0.4s ease;
+        pointer-events: none;
+      }
+
+      .theme-ripple.is-expanding {
+        clip-path: circle(var(--r) at var(--x) var(--y));
+      }
+
       .hamburger-btn {
         position: fixed;
         top: 16px;
@@ -407,10 +421,58 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         document.documentElement.setAttribute("data-theme", next);
         localStorage.setItem(STORAGE_KEY, next);
         updateToggleLabels();
+        refreshTweetEmbeds();
+      }
+
+      // 埋め込みツイートはビルド時に静的生成されるため、data-theme はここで
+      // クライアント側から都度上書きし、twttr.widgets.load() で反映させる
+      function refreshTweetEmbeds() {
+        const isDark = currentTheme() === "dark";
+        document
+          .querySelectorAll<HTMLElement>(".twitter-tweet")
+          .forEach((el) => {
+            el.setAttribute("data-theme", isDark ? "dark" : "light");
+          });
+        const twttr = (window as unknown as {
+          twttr?: { widgets?: { load: () => void } };
+        }).twttr;
+        twttr?.widgets?.load();
       }
 
       updateToggleLabels();
-      document.addEventListener("astro:page-load", updateToggleLabels);
+      refreshTweetEmbeds();
+      document.addEventListener("astro:page-load", () => {
+        updateToggleLabels();
+        refreshTweetEmbeds();
+      });
+
+      // --- テーマ切り替えのリップルアニメーション(lab効果の設定に関係なく常に動作する) ---
+      const THEME_RIPPLE_DURATION = 400;
+
+      function triggerThemeRipple(x: number, y: number) {
+        const color =
+          currentTheme() === "dark"
+            ? "rgba(217, 242, 223, 0.5)" // ダーク→ライト: 薄いグリーン系
+            : "rgba(0, 38, 20, 0.15)"; // ライト→ダーク: 暗い緑系
+        const maxRadius = Math.hypot(
+          Math.max(x, window.innerWidth - x),
+          Math.max(y, window.innerHeight - y)
+        );
+        const overlay = document.createElement("div");
+        overlay.className = "theme-ripple";
+        overlay.style.setProperty("--x", `${x}px`);
+        overlay.style.setProperty("--y", `${y}px`);
+        overlay.style.setProperty("--r", `${maxRadius}px`);
+        overlay.style.setProperty("--ripple-color", color);
+        document.body.appendChild(overlay);
+
+        void overlay.offsetHeight; // reflowを強制してtransitionを確実に発火させる
+        overlay.classList.add("is-expanding");
+
+        // リップルが画面の半分程度まで広がったタイミングでテーマを切り替える
+        window.setTimeout(toggleTheme, THEME_RIPPLE_DURATION / 2);
+        window.setTimeout(() => overlay.remove(), THEME_RIPPLE_DURATION);
+      }
 
       // --- ページ最上部でのみヘッダーを表示し、それ以外はハンバーガーボタンに切り替える ---
       const SCROLL_TOP_THRESHOLD = 10;
@@ -501,7 +563,7 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
           return;
         }
         if (target.closest(".theme-toggle-btn")) {
-          toggleTheme();
+          triggerThemeRipple(e.clientX, e.clientY);
           return;
         }
         // ドロワー内のリンクをクリックした場合(=遷移する場合)は閉じておく
