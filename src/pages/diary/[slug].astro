@@ -484,10 +484,10 @@ const nextEntry =
   </style>
 
   <script>
-    const lightbox = document.getElementById("lightbox") as HTMLElement;
-    const lightboxImg = document.getElementById(
-      "lightbox-img"
-    ) as HTMLImageElement;
+    // View Transitions後は #lightbox / #lightbox-img が新しいDOMに差し替わるため、
+    // 要素参照をモジュール読み込み時にキャッシュせず、使用のたびに取得し直す。
+    // クリック検知もdocumentへのevent delegationに一本化し、遷移後も
+    // スクリプトが再実行されなくても自然に機能するようにする。
 
     const LIGHTBOX_CLOSE_DURATION = 200; // .lightbox の閉じるtransitionと合わせる
 
@@ -495,6 +495,12 @@ const nextEntry =
     let closeTimeoutId: number | undefined;
 
     function openLightbox(src: string, alt: string) {
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImg = document.getElementById(
+        "lightbox-img"
+      ) as HTMLImageElement | null;
+      if (!lightbox || !lightboxImg) return;
+
       if (closeTimeoutId !== undefined) {
         window.clearTimeout(closeTimeoutId);
         closeTimeoutId = undefined;
@@ -513,25 +519,30 @@ const nextEntry =
     function closeLightbox() {
       if (!lightboxIsOpen) return;
       lightboxIsOpen = false;
-      lightbox.classList.remove("is-open");
+      const lightbox = document.getElementById("lightbox");
+      lightbox?.classList.remove("is-open");
       closeTimeoutId = window.setTimeout(() => {
-        lightbox.style.display = "none";
-        lightboxImg.src = "";
+        const lb = document.getElementById("lightbox");
+        const lbImg = document.getElementById(
+          "lightbox-img"
+        ) as HTMLImageElement | null;
+        if (lb) lb.style.display = "none";
+        if (lbImg) lbImg.src = "";
         closeTimeoutId = undefined;
       }, LIGHTBOX_CLOSE_DURATION);
     }
 
     document.addEventListener("click", (e) => {
-      const target = e.target;
-      if (
-        target instanceof HTMLImageElement &&
-        target.hasAttribute("data-lightbox")
-      ) {
-        openLightbox(target.src, target.alt);
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      const img = target.closest(".diary-media--image");
+      if (img instanceof HTMLImageElement) {
+        openLightbox(img.src, img.alt);
         return;
       }
       // オーバーレイ(画像以外)をクリックした場合のみ閉じる
-      if (target === lightbox) {
+      if (target.id === "lightbox") {
         closeLightbox();
       }
     });

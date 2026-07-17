@@ -422,10 +422,12 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         localStorage.setItem(STORAGE_KEY, next);
         updateToggleLabels();
         refreshTweetEmbeds();
+        reloadTweetEmbeds();
       }
 
       // 埋め込みツイートはビルド時に静的生成されるため、data-theme はここで
       // クライアント側から都度上書きし、twttr.widgets.load() で反映させる
+      // (widgets.js未処理の.twitter-tweetが対象。既にiframe化済みのものには効かない)
       function refreshTweetEmbeds() {
         const isDark = currentTheme() === "dark";
         document
@@ -433,6 +435,36 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
           .forEach((el) => {
             el.setAttribute("data-theme", isDark ? "dark" : "light");
           });
+        const twttr = (window as unknown as {
+          twttr?: { widgets?: { load: () => void } };
+        }).twttr;
+        twttr?.widgets?.load();
+      }
+
+      // widgets.jsが一度<blockquote>をiframe(twitter-widget)へ変換すると、
+      // 再度widgets.load()を呼んでもdata-theme変更は反映されない。
+      // そのため既に描画済みのツイートは元の<blockquote>の形に戻してから
+      // 再描画し、テーマ切り替え後もカードの見た目を追従させる。
+      function reloadTweetEmbeds() {
+        document
+          .querySelectorAll<HTMLElement>(".twitter-tweet-rendered, twitter-widget")
+          .forEach((el) => {
+            const url =
+              el.getAttribute("data-tweet-url") ??
+              el.shadowRoot?.querySelector("a")?.getAttribute("href") ??
+              "";
+            const blockquote = document.createElement("blockquote");
+            blockquote.className = "twitter-tweet";
+            blockquote.setAttribute(
+              "data-theme",
+              currentTheme() === "dark" ? "dark" : "light"
+            );
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            blockquote.appendChild(anchor);
+            el.parentNode?.replaceChild(blockquote, el);
+          });
+
         const twttr = (window as unknown as {
           twttr?: { widgets?: { load: () => void } };
         }).twttr;
@@ -562,8 +594,12 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
           closeDrawer();
           return;
         }
-        if (target.closest(".theme-toggle-btn")) {
-          triggerThemeRipple(e.clientX, e.clientY);
+        const themeToggleBtn = target.closest(".theme-toggle-btn");
+        if (themeToggleBtn) {
+          const rect = themeToggleBtn.getBoundingClientRect();
+          const x = rect.left + rect.width / 2;
+          const y = rect.top + rect.height / 2;
+          triggerThemeRipple(x, y);
           return;
         }
         // ドロワー内のリンクをクリックした場合(=遷移する場合)は閉じておく
