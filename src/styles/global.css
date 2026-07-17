@@ -343,6 +343,24 @@ h3,
   clip-path: circle(var(--r) at var(--x) var(--y));
 }
 
+/* テーマ切り替えリップル。BaseLayout.astroのスクリプトがdocument.createElementで
+   生成するため、Astroのスコープ付きCSS(<style>内)に置くと自動付与される
+   data-astro-cid-*属性がこの要素には付かず、セレクタが一致せず無効化されてしまう。
+   そのため他の動的生成オーバーレイ(.lab-page-ripple等)と同様にここに置く。 */
+.theme-ripple {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--ripple-color);
+  clip-path: circle(0px at var(--x) var(--y));
+  transition: clip-path 0.4s ease;
+  pointer-events: none;
+}
+
+.theme-ripple.is-expanding {
+  clip-path: circle(var(--r) at var(--x) var(--y));
+}
+
 .lab-scroll-particles {
   position: fixed;
   inset: 0;

@@ -235,20 +235,6 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         color: var(--color-primary-bright);
       }
 
-      .theme-ripple {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        background: var(--ripple-color);
-        clip-path: circle(0px at var(--x) var(--y));
-        transition: clip-path 0.4s ease;
-        pointer-events: none;
-      }
-
-      .theme-ripple.is-expanding {
-        clip-path: circle(var(--r) at var(--x) var(--y));
-      }
-
       .hamburger-btn {
         position: fixed;
         top: 16px;
@@ -489,7 +475,14 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
       refreshTweetEmbeds();
       document.addEventListener("astro:page-load", () => {
         updateToggleLabels();
+        // widgets.js(非同期読み込み)の自動描画は、まだ未描画の<blockquote>を
+        // refreshTweetEmbeds()がdata-theme修正するより先に走ってしまうことがある
+        // (実測でも数百ms単位の競合が確認できる)。その場合、遷移直後の
+        // refreshTweetEmbeds()だけでは既に描画済みのカードを直せないため、
+        // reloadTweetEmbeds()も必ず合わせて呼び、どちらが先に完了しても
+        // 最終的に正しいテーマで表示されるようにする。
         refreshTweetEmbeds();
+        reloadTweetEmbeds();
       });
 
       // --- テーマ切り替えのリップルアニメーション(lab効果の設定に関係なく常に動作する) ---
