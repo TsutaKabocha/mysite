@@ -211,6 +211,12 @@ export interface DiaryGroup {
   sortKey: number;
 }
 
+// 見出し表示用に先頭の "YYYY年" だけを取り除く(保存されているMarkdown自体は変更せず、
+// 表示時にだけ "## YYYY年M月D日" → "M月D日" に短縮する。年が付いていない見出しはそのまま)
+function stripYearFromHeadingForDisplay(heading: string): string {
+  return heading.replace(/^\d{4}年(?=\d)/, "");
+}
+
 // 見出しから月日を取り出してソートキーにする(例: "7月15日（予定）" → 715)
 // 月日を取り出せない見出しは元の出現順を保つため、十分大きい値に出現順を加算する
 function extractDateKey(heading: string, appearanceOrder: number): number {
@@ -239,7 +245,7 @@ export function parseDiaryEntries(raw: string): DiaryGroup[] {
     let group = groups.get(currentHeading);
     if (!group) {
       group = {
-        heading: currentHeading,
+        heading: stripYearFromHeadingForDisplay(currentHeading),
         bodies: [],
         sortKey: extractDateKey(currentHeading, order.length),
       };

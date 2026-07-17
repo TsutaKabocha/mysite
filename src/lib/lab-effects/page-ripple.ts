@@ -1,67 +1,68 @@
+import type { TransitionBeforePreparationEvent } from "astro:transitions/client";
 import { isLabEffectEnabled, onLabEffectToggle } from "./core";
 
 let enabled = false;
-let listenerAttached = false;
 
-// サイト内ナビゲーションだけを対象にする(外部リンク・新規タブ・ダウンロード・
-// 修飾キー付きクリック・同一ページ内アンカーは素通りさせる)
-function shouldIntercept(link: HTMLAnchorElement, event: MouseEvent): boolean {
-  if (event.button !== 0) return false;
-  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return false;
-  if (link.target && link.target !== "_self") return false;
-  if (link.hasAttribute("download")) return false;
-
-  const url = new URL(link.href, location.href);
-  if (url.origin !== location.origin) return false;
-  if (url.pathname === location.pathname && url.search === location.search && url.hash) {
-    return false;
-  }
-  return true;
-}
-
-function playRippleAndNavigate(x: number, y: number, href: string) {
+function createRippleOverlay(x: number, y: number): HTMLDivElement {
   const maxRadius = Math.hypot(
     Math.max(x, window.innerWidth - x),
     Math.max(y, window.innerHeight - y)
   );
-
   const overlay = document.createElement("div");
   overlay.className = "lab-page-ripple";
   overlay.style.setProperty("--x", `${x}px`);
   overlay.style.setProperty("--y", `${y}px`);
   overlay.style.setProperty("--r", `${maxRadius}px`);
   document.body.appendChild(overlay);
-
-  void overlay.offsetHeight; // reflowを強制してtransitionを確実に発火させる
-  overlay.classList.add("is-expanding");
-
-  let navigated = false;
-  const navigate = () => {
-    if (navigated) return;
-    navigated = true;
-    window.location.href = href;
-  };
-  overlay.addEventListener("transitionend", navigate, { once: true });
-  window.setTimeout(navigate, 700); // transitionendが発火しない場合の保険
+  return overlay;
 }
 
-function handleClick(e: MouseEvent) {
-  if (!enabled || e.defaultPrevented) return;
-  const target = e.target as HTMLElement | null;
-  const link = target?.closest("a") as HTMLAnchorElement | null;
-  if (!link || !shouldIntercept(link, e)) return;
-  e.preventDefault();
-  playRippleAndNavigate(e.clientX, e.clientY, link.href);
+// リップルが画面を覆い終わるまで待つ(transitionendが発火しない場合の保険付き)
+function expandAndWaitForCover(overlay: HTMLDivElement): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      resolve();
+    };
+    overlay.addEventListener("transitionend", finish, { once: true });
+    window.setTimeout(finish, 700);
+
+    void overlay.offsetHeight; // reflowを強制してtransitionを確実に発火させる
+    overlay.classList.add("is-expanding");
+  });
+}
+
+// ClientRouter(View Transitions)はリンククリックを自前でpreventDefaultして
+// navigate()するため、旧実装のようにdocumentのclickイベントを横取りして
+// preventDefault+location.hrefで遷移する方式は競合して機能しなくなる。
+// 代わりにAstroが遷移開始時に発火させる astro:before-preparation にフックし、
+// 実際のページ差し替え(loader)をリップルが画面を覆い終わるまで遅延させる。
+function handleBeforePreparation(event: TransitionBeforePreparationEvent) {
+  if (!enabled || !event.sourceElement) return;
+
+  const rect = event.sourceElement.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = rect.top + rect.height / 2;
+  const overlay = createRippleOverlay(x, y);
+
+  const defaultLoader = event.loader;
+  event.loader = async () => {
+    await expandAndWaitForCover(overlay);
+    await defaultLoader();
+  };
 }
 
 // リンククリック位置から円形のリップルが広がって次のページへ遷移する演出
 export function initPageRipple(): void {
   enabled = isLabEffectEnabled("page-ripple");
-  if (!listenerAttached) {
-    listenerAttached = true;
-    document.addEventListener("click", handleClick);
-  }
   onLabEffectToggle("page-ripple", (next) => {
     enabled = next;
   });
+
+  document.addEventListener(
+    "astro:before-preparation",
+    handleBeforePreparation as EventListener
+  );
 }

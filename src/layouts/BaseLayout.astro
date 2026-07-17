@@ -1,5 +1,6 @@
 ---
 import { getCollection } from "astro:content";
+import { ClientRouter } from "astro:transitions";
 import "../styles/global.css";
 
 interface Props {
@@ -62,9 +63,10 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"
       rel="stylesheet"
     />
+    <ClientRouter />
   </head>
   <body>
-    <header class="site-header">
+    <header class="site-header" id="site-header">
       <div class="ncom-l-container site-header__inner">
         <a href="/" class="site-header__logo">{siteName}</a>
         <nav class="site-header__nav">
@@ -75,7 +77,7 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
           <button
             type="button"
             id="theme-toggle"
-            class="theme-toggle"
+            class="theme-toggle theme-toggle-btn"
             aria-label="ライト/ダークモード切り替え"
           >
             DARK
@@ -83,6 +85,59 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         </nav>
       </div>
     </header>
+
+    <button
+      type="button"
+      id="hamburger-btn"
+      class="hamburger-btn"
+      aria-label="メニューを開く"
+      aria-expanded="false"
+      aria-controls="nav-drawer"
+    >
+      ☰
+    </button>
+
+    <div class="nav-drawer-overlay" id="nav-drawer-overlay" hidden></div>
+    <nav class="nav-drawer" id="nav-drawer" aria-label="メニュー" aria-hidden="true">
+      <button
+        type="button"
+        id="nav-drawer-close"
+        class="nav-drawer__close"
+        aria-label="メニューを閉じる"
+      >
+        ✕
+      </button>
+      <ul class="nav-drawer__list">
+        <li>
+          <a
+            href="/"
+            class="nav-drawer__link"
+            aria-current={isTop ? "page" : undefined}
+          >
+            TOP
+          </a>
+        </li>
+        <li>
+          <a
+            href={diaryHref}
+            class="nav-drawer__link"
+            aria-current={isDiary ? "page" : undefined}
+          >
+            DIARY
+          </a>
+        </li>
+        <li>
+          <button
+            type="button"
+            id="drawer-theme-toggle"
+            class="nav-drawer__link theme-toggle-btn"
+            aria-label="ライト/ダークモード切り替え"
+          >
+            DARK
+          </button>
+        </li>
+      </ul>
+    </nav>
 
     <main class="site-main">
       <slot />
@@ -102,7 +157,14 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         height: var(--ncom-header-height);
         background-color: var(--ncom-bg-page);
         border-bottom: 1px solid var(--ncom-color-gray-300);
-        transition: background-color 0.3s ease, color 0.3s ease;
+        transition: background-color 0.3s ease, color 0.3s ease,
+          transform 0.3s ease, opacity 0.3s ease;
+      }
+
+      .site-header.is-hidden {
+        transform: translateY(-100%);
+        opacity: 0;
+        pointer-events: none;
       }
 
       .site-header__inner {
@@ -171,6 +233,126 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         color: var(--color-primary-bright);
       }
 
+      .hamburger-btn {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border: none;
+        border-radius: 4px;
+        background-color: var(--ncom-bg-page);
+        color: var(--color-primary-dark);
+        font-size: 20px;
+        line-height: 1;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        opacity: 0;
+        transform: scale(0.85);
+        pointer-events: none;
+        transition: opacity 0.2s ease, transform 0.2s ease,
+          background-color 0.3s ease, color 0.3s ease;
+      }
+
+      .hamburger-btn.is-visible {
+        opacity: 1;
+        transform: scale(1);
+        pointer-events: auto;
+      }
+
+      [data-theme="dark"] .hamburger-btn {
+        color: var(--color-primary-bright);
+      }
+
+      .nav-drawer-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 1001;
+        background: rgba(0, 0, 0, 0.4);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+      }
+
+      .nav-drawer-overlay.is-open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .nav-drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1002;
+        display: flex;
+        flex-direction: column;
+        width: min(280px, 80vw);
+        padding: 20px;
+        background-color: var(--ncom-bg-page);
+        box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
+        transform: translateX(100%);
+        transition: transform 0.3s ease, background-color 0.3s ease;
+      }
+
+      .nav-drawer.is-open {
+        transform: translateX(0);
+      }
+
+      .nav-drawer__close {
+        align-self: flex-end;
+        margin-bottom: 16px;
+        padding: 8px;
+        border: none;
+        background: none;
+        color: var(--ncom-color-txt-sub);
+        font-size: 18px;
+        cursor: pointer;
+      }
+
+      .nav-drawer__list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .nav-drawer__link {
+        display: block;
+        width: 100%;
+        padding: 14px 12px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--ncom-color-heading);
+        font-family: var(--ncom-ff-ja);
+        font-size: 16px;
+        font-weight: 700;
+        text-align: left;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease;
+      }
+
+      .nav-drawer__link:hover {
+        background-color: var(--ncom-bg-surface-100);
+        opacity: 1;
+      }
+
+      .nav-drawer__link[aria-current="page"] {
+        color: var(--color-primary-dark);
+      }
+
+      [data-theme="dark"] .nav-drawer__link[aria-current="page"] {
+        color: var(--color-primary-bright);
+      }
+
       .site-main {
         min-height: calc(100vh - var(--ncom-header-height) - 80px);
       }
@@ -190,10 +372,13 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
     </style>
 
     <script>
+      // ClientRouter(View Transitions)導入後は、同一の<script>がページ遷移のたびに
+      // 再実行されるとは限らず、また遷移でdocument.body配下の要素は丸ごと
+      // 差し替えられる(参照を保持していると古いDOMを掴んだままになる)。
+      // そのため要素への参照は都度取得し直し、クリック等はdocumentへの
+      // イベント委任で受け止めることで、遷移後の新しいDOMにも自然に追従させる。
+
       const STORAGE_KEY = "theme";
-      const toggleBtn = document.getElementById(
-        "theme-toggle"
-      ) as HTMLButtonElement;
 
       function currentTheme(): "light" | "dark" {
         return document.documentElement.getAttribute("data-theme") === "dark"
@@ -201,17 +386,138 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
           : "light";
       }
 
-      function updateToggleLabel() {
-        toggleBtn.textContent = currentTheme() === "dark" ? "LIGHT" : "DARK";
+      function updateToggleLabels() {
+        const label = currentTheme() === "dark" ? "LIGHT" : "DARK";
+        document
+          .querySelectorAll<HTMLButtonElement>(".theme-toggle-btn")
+          .forEach((btn) => {
+            btn.textContent = label;
+          });
       }
 
-      updateToggleLabel();
-
-      toggleBtn.addEventListener("click", () => {
+      function toggleTheme() {
         const next = currentTheme() === "dark" ? "light" : "dark";
         document.documentElement.setAttribute("data-theme", next);
         localStorage.setItem(STORAGE_KEY, next);
-        updateToggleLabel();
+        updateToggleLabels();
+      }
+
+      updateToggleLabels();
+      document.addEventListener("astro:page-load", updateToggleLabels);
+
+      // --- 下スクロールでヘッダーを隠し、ハンバーガーボタンに切り替える ---
+      const SCROLL_HIDE_THRESHOLD = 50;
+      let lastScrollY = window.scrollY;
+      let headerHidden = false;
+      let scrollTicking = false;
+
+      function updateHeaderVisibility() {
+        scrollTicking = false;
+        const header = document.getElementById("site-header");
+        const hamburgerBtn = document.getElementById("hamburger-btn");
+        if (!header || !hamburgerBtn) return;
+
+        const currentY = window.scrollY;
+        const scrollingDown = currentY > lastScrollY;
+
+        if (scrollingDown && currentY > SCROLL_HIDE_THRESHOLD && !headerHidden) {
+          headerHidden = true;
+          header.classList.add("is-hidden");
+          hamburgerBtn.classList.add("is-visible");
+        } else if (!scrollingDown && headerHidden) {
+          headerHidden = false;
+          header.classList.remove("is-hidden");
+          hamburgerBtn.classList.remove("is-visible");
+        }
+        lastScrollY = currentY;
+      }
+
+      window.addEventListener(
+        "scroll",
+        () => {
+          if (!scrollTicking) {
+            scrollTicking = true;
+            requestAnimationFrame(updateHeaderVisibility);
+          }
+        },
+        { passive: true }
+      );
+
+      // 遷移直後は新しいページの先頭から見せたいので、ヘッダーの表示状態をリセットする
+      document.addEventListener("astro:page-load", () => {
+        headerHidden = false;
+        lastScrollY = window.scrollY;
+        document.getElementById("site-header")?.classList.remove("is-hidden");
+        document
+          .getElementById("hamburger-btn")
+          ?.classList.remove("is-visible");
+      });
+
+      // --- ドロワーメニュー ---
+      let drawerIsOpen = false;
+
+      function openDrawer() {
+        const drawer = document.getElementById("nav-drawer");
+        const overlay = document.getElementById("nav-drawer-overlay");
+        const hamburgerBtn = document.getElementById("hamburger-btn");
+        if (!drawer || !overlay || !hamburgerBtn) return;
+        drawerIsOpen = true;
+        overlay.hidden = false;
+        void overlay.offsetHeight; // reflowを強制してtransitionを確実に発火させる
+        drawer.classList.add("is-open");
+        overlay.classList.add("is-open");
+        drawer.setAttribute("aria-hidden", "false");
+        hamburgerBtn.setAttribute("aria-expanded", "true");
+      }
+
+      function closeDrawer() {
+        if (!drawerIsOpen) return;
+        drawerIsOpen = false;
+        const drawer = document.getElementById("nav-drawer");
+        const overlay = document.getElementById("nav-drawer-overlay");
+        const hamburgerBtn = document.getElementById("hamburger-btn");
+        drawer?.classList.remove("is-open");
+        overlay?.classList.remove("is-open");
+        drawer?.setAttribute("aria-hidden", "true");
+        hamburgerBtn?.setAttribute("aria-expanded", "false");
+        window.setTimeout(() => {
+          if (!drawerIsOpen && overlay) overlay.hidden = true;
+        }, 250);
+      }
+
+      document.addEventListener("click", (e) => {
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+
+        if (target.closest("#hamburger-btn")) {
+          drawerIsOpen ? closeDrawer() : openDrawer();
+          return;
+        }
+        if (target.closest("#nav-drawer-close")) {
+          closeDrawer();
+          return;
+        }
+        if (target.id === "nav-drawer-overlay") {
+          closeDrawer();
+          return;
+        }
+        if (target.closest(".theme-toggle-btn")) {
+          toggleTheme();
+          return;
+        }
+        // ドロワー内のリンクをクリックした場合(=遷移する場合)は閉じておく
+        if (drawerIsOpen && target.closest("#nav-drawer a")) {
+          closeDrawer();
+        }
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && drawerIsOpen) closeDrawer();
+      });
+
+      // ページ遷移が始まったらドロワーは閉じておく
+      document.addEventListener("astro:before-preparation", () => {
+        if (drawerIsOpen) closeDrawer();
       });
     </script>
 

@@ -141,6 +141,16 @@ a {
   transition: color 0.15s ease;
 }
 
+/* ダークモードではフォーム要素がブラウザ既定の文字色(黒)のまま残ってしまうため、
+   テーマに応じたテキスト色・背景・枠線を明示的に指定する */
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+}
+
 /* クリック可能なテキストリンクは hover で深緑に。
    ボタン化されたリンク(.ncom-c-cta-btn / .ncom-c-link-btn)は
    それぞれ専用の hover 表現を持つため対象から除外する */

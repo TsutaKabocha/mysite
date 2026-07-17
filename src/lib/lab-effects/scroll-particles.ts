@@ -21,6 +21,7 @@ export function initScrollParticles(): void {
   let particles: Particle[] = [];
   let rafId: number | undefined;
   let scrollOffset = 0;
+  let isEnabled = false;
 
   function resize() {
     if (!canvas) return;
@@ -45,7 +46,10 @@ export function initScrollParticles(): void {
   }
 
   function draw(time: number) {
-    if (!ctx || !canvas) return;
+    if (!ctx || !canvas || !canvas.isConnected) {
+      rafId = undefined;
+      return;
+    }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const wrap = canvas.height + 40;
 
@@ -64,8 +68,14 @@ export function initScrollParticles(): void {
     rafId = requestAnimationFrame(draw);
   }
 
-  function start() {
-    if (canvas) return;
+  // Astroのページ遷移(View Transitions)でdocument.bodyが丸ごと入れ替わると、
+  // 動的に追加したcanvasも一緒に消えてしまうため、無ければ作り直す
+  function ensureCanvas() {
+    if (canvas && canvas.isConnected) return;
+    if (rafId !== undefined) {
+      cancelAnimationFrame(rafId);
+      rafId = undefined;
+    }
     canvas = document.createElement("canvas");
     canvas.className = "lab-scroll-particles";
     document.body.appendChild(canvas);
@@ -73,20 +83,28 @@ export function initScrollParticles(): void {
     scrollOffset = window.scrollY;
     resize();
     createParticles();
-    window.addEventListener("resize", resize);
-    window.addEventListener("scroll", onScroll, { passive: true });
     rafId = requestAnimationFrame(draw);
   }
 
+  function start() {
+    isEnabled = true;
+    ensureCanvas();
+  }
+
   function stop() {
-    if (!canvas) return;
-    window.removeEventListener("resize", resize);
-    window.removeEventListener("scroll", onScroll);
+    isEnabled = false;
     if (rafId !== undefined) cancelAnimationFrame(rafId);
-    canvas.remove();
+    rafId = undefined;
+    canvas?.remove();
     canvas = null;
     ctx = null;
   }
+
+  window.addEventListener("resize", resize);
+  window.addEventListener("scroll", onScroll, { passive: true });
+  document.addEventListener("astro:page-load", () => {
+    if (isEnabled) ensureCanvas();
+  });
 
   if (isLabEffectEnabled("scroll-particles")) start();
   onLabEffectToggle("scroll-particles", (enabled) => (enabled ? start() : stop()));
