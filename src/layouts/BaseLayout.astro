@@ -445,12 +445,22 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
       // 一度<blockquote>の形に戻してから再描画する必要がある。
       // URLは差し替え後の要素からは復元できないため、diary.tsで
       // ラッパー(.diary-embed-tweet)側に控えておいたdata-original-urlから読む。
+      //
+      // .diary-embed-tweet(ラッパー)自体は一切操作しない。ラッパー単位で
+      // 走査し、中身を常に「新しいblockquote1つだけ」に揃えることで、
+      // 短時間に連続でテーマ切り替えが行われてwidgets.jsの非同期描画が
+      // 重なった場合でも、描画途中の要素がラッパー内に孤児として溜まって
+      // flexの中央寄せが崩れる(結果的に左寄りに見える)ことを防ぐ。
       function reloadTweetEmbeds() {
         document
-          .querySelectorAll<HTMLElement>(".twitter-tweet-rendered, twitter-widget")
-          .forEach((el) => {
-            const wrapper = el.closest<HTMLElement>(".diary-embed-tweet");
-            const url = wrapper?.getAttribute("data-original-url") ?? "";
+          .querySelectorAll<HTMLElement>(".diary-embed-tweet")
+          .forEach((wrapper) => {
+            const hasRendered = wrapper.querySelector(
+              ".twitter-tweet-rendered, twitter-widget"
+            );
+            if (!hasRendered) return; // まだ未描画のラッパーは対象外
+
+            const url = wrapper.getAttribute("data-original-url") ?? "";
             if (!url) return; // URLが復元できない場合は空のblockquoteを作らない
 
             const blockquote = document.createElement("blockquote");
@@ -462,7 +472,7 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
             const anchor = document.createElement("a");
             anchor.href = url;
             blockquote.appendChild(anchor);
-            el.parentNode?.replaceChild(blockquote, el);
+            wrapper.replaceChildren(blockquote);
           });
 
         const twttr = (window as unknown as {
@@ -471,8 +481,49 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         twttr?.widgets?.load();
       }
 
+      // widgets.jsの'rendered'イベントは、各ツイートの描画(iframe生成)が
+      // 完了した瞬間に発火する公式API。ページ遷移直後は widgets.js の
+      // 非同期読み込み・自動描画とastro:page-loadの発火順が保証されないため、
+      // 稀にastro:page-load時点でのdata-theme修正より先に(誤った既定テーマで)
+      // 描画が完了してしまうことがある。'rendered'を監視し、実際に描画された
+      // iframeのtheme(src中のクエリパラメータ)と現在のテーマが食い違って
+      // いる場合だけreloadTweetEmbeds()で作り直す(一致していれば何もしない
+      // ため無限ループにはならない)。
+      function bindTweetRenderedEvent(retriesLeft = 40) {
+        const twttr = (window as unknown as {
+          twttr?: {
+            events?: {
+              bind: (event: string, cb: (event: unknown) => void) => void;
+            };
+          };
+        }).twttr;
+
+        if (twttr?.events?.bind) {
+          twttr.events.bind("rendered", (event) => {
+            const iframe = (event as { target?: unknown })?.target;
+            if (!(iframe instanceof HTMLIFrameElement)) return;
+            let renderedTheme: string | null = null;
+            try {
+              renderedTheme = new URL(iframe.src).searchParams.get("theme");
+            } catch {
+              return;
+            }
+            if (renderedTheme !== currentTheme()) {
+              reloadTweetEmbeds();
+            }
+          });
+          return;
+        }
+
+        // widgets.js自体がまだ読み込まれておらずtwttr.eventsが未定義の場合は、
+        // 利用可能になるまで短い間隔でリトライする(最大4秒)
+        if (retriesLeft <= 0) return;
+        window.setTimeout(() => bindTweetRenderedEvent(retriesLeft - 1), 100);
+      }
+
       updateToggleLabels();
       refreshTweetEmbeds();
+      bindTweetRenderedEvent();
       document.addEventListener("astro:page-load", () => {
         updateToggleLabels();
         // widgets.js(非同期読み込み)の自動描画は、まだ未描画の<blockquote>を
@@ -483,6 +534,10 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         // 最終的に正しいテーマで表示されるようにする。
         refreshTweetEmbeds();
         reloadTweetEmbeds();
+        // data-astro-rerunによりwidgets.jsは遷移のたびに再実行されるため、
+        // window.twttrが再構築され、以前バインドした'rendered'リスナーが
+        // 引き継がれない可能性がある。遷移ごとに再バインドしておく。
+        bindTweetRenderedEvent();
       });
 
       // --- テーマ切り替えのリップルアニメーション(lab効果の設定に関係なく常に動作する) ---
