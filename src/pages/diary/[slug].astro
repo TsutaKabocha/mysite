@@ -333,7 +333,9 @@ const nextEntry =
     }
 
     .diary-article__body :global(.diary-media--audio) {
-      width: 100%;
+      display: block;
+      width: 75%;
+      margin: 0 auto;
       accent-color: var(--color-primary);
     }
 
@@ -452,24 +454,23 @@ const nextEntry =
         font-size: 13px;
       }
 
-      .lightbox {
-        align-items: flex-start;
-        padding-top: 1vh;
+      .lightbox__img {
+        margin-top: -8vh;
       }
 
       .diary-article__body :global(.diary-media--image),
       .diary-article__body :global(.diary-media--video),
       .diary-article__body :global(.diary-embed-video) {
-        width: 100%;
+        width: 83%;
       }
 
       .diary-article__body :global(.diary-image-pair) {
-        width: 100%;
-        flex-direction: column;
+        width: 83%;
+        flex-direction: row;
       }
 
       .diary-article__body :global(.diary-image-pair .diary-media--image) {
-        width: 100%;
+        width: 48%;
       }
     }
   </style>

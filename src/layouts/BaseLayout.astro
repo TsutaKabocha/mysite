@@ -94,19 +94,13 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
       aria-expanded="false"
       aria-controls="nav-drawer"
     >
-      ☰
+      <span class="hamburger-btn__line"></span>
+      <span class="hamburger-btn__line"></span>
+      <span class="hamburger-btn__line"></span>
     </button>
 
     <div class="nav-drawer-overlay" id="nav-drawer-overlay" hidden></div>
     <nav class="nav-drawer" id="nav-drawer" aria-label="メニュー" aria-hidden="true">
-      <button
-        type="button"
-        id="nav-drawer-close"
-        class="nav-drawer__close"
-        aria-label="メニューを閉じる"
-      >
-        ✕
-      </button>
       <ul class="nav-drawer__list">
         <li>
           <a
@@ -239,23 +233,20 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         right: 16px;
         z-index: 1000;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: 6px;
         width: 44px;
         height: 44px;
         border: none;
         border-radius: 4px;
-        background-color: var(--ncom-bg-page);
-        color: var(--color-primary-dark);
-        font-size: 20px;
-        line-height: 1;
+        background: none;
         cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         opacity: 0;
         transform: scale(0.85);
         pointer-events: none;
-        transition: opacity 0.2s ease, transform 0.2s ease,
-          background-color 0.3s ease, color 0.3s ease;
+        transition: opacity 0.2s ease, transform 0.2s ease;
       }
 
       .hamburger-btn.is-visible {
@@ -264,18 +255,39 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         pointer-events: auto;
       }
 
-      [data-theme="dark"] .hamburger-btn {
-        color: var(--color-primary-bright);
+      .hamburger-btn__line {
+        display: block;
+        width: 22px;
+        height: 2px;
+        background-color: var(--color-primary-dark);
+        transition: transform 0.25s ease, opacity 0.25s ease,
+          background-color 0.3s ease;
+      }
+
+      [data-theme="dark"] .hamburger-btn__line {
+        background-color: var(--color-primary-bright);
+      }
+
+      .hamburger-btn[aria-expanded="true"] .hamburger-btn__line:nth-child(1) {
+        transform: translateY(8px) rotate(45deg);
+      }
+
+      .hamburger-btn[aria-expanded="true"] .hamburger-btn__line:nth-child(2) {
+        opacity: 0;
+      }
+
+      .hamburger-btn[aria-expanded="true"] .hamburger-btn__line:nth-child(3) {
+        transform: translateY(-8px) rotate(-45deg);
       }
 
       .nav-drawer-overlay {
         position: fixed;
         inset: 0;
         z-index: 1001;
-        background: rgba(0, 0, 0, 0.4);
+        background: rgba(0, 0, 0, 0.3);
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.25s ease;
+        transition: opacity 0.2s ease;
       }
 
       .nav-drawer-overlay.is-open {
@@ -285,33 +297,28 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
 
       .nav-drawer {
         position: fixed;
-        top: 0;
-        right: 0;
-        bottom: 0;
+        top: 56px;
+        right: 16px;
         z-index: 1002;
         display: flex;
         flex-direction: column;
-        width: min(280px, 80vw);
-        padding: 20px;
-        background-color: var(--ncom-bg-page);
-        box-shadow: -4px 0 24px rgba(0, 0, 0, 0.2);
-        transform: translateX(100%);
-        transition: transform 0.3s ease, background-color 0.3s ease;
+        min-width: 140px;
+        padding: 8px;
+        background-color: var(--color-bg);
+        border: 1px solid var(--color-border);
+        border-radius: 8px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+        opacity: 0;
+        transform: translateY(-8px);
+        pointer-events: none;
+        transition: opacity 0.2s ease, transform 0.2s ease,
+          background-color 0.3s ease;
       }
 
       .nav-drawer.is-open {
-        transform: translateX(0);
-      }
-
-      .nav-drawer__close {
-        align-self: flex-end;
-        margin-bottom: 16px;
-        padding: 8px;
-        border: none;
-        background: none;
-        color: var(--ncom-color-txt-sub);
-        font-size: 18px;
-        cursor: pointer;
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
       }
 
       .nav-drawer__list {
@@ -405,9 +412,8 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
       updateToggleLabels();
       document.addEventListener("astro:page-load", updateToggleLabels);
 
-      // --- 下スクロールでヘッダーを隠し、ハンバーガーボタンに切り替える ---
-      const SCROLL_HIDE_THRESHOLD = 50;
-      let lastScrollY = window.scrollY;
+      // --- ページ最上部でのみヘッダーを表示し、それ以外はハンバーガーボタンに切り替える ---
+      const SCROLL_TOP_THRESHOLD = 10;
       let headerHidden = false;
       let scrollTicking = false;
 
@@ -417,19 +423,17 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         const hamburgerBtn = document.getElementById("hamburger-btn");
         if (!header || !hamburgerBtn) return;
 
-        const currentY = window.scrollY;
-        const scrollingDown = currentY > lastScrollY;
+        const atTop = window.scrollY < SCROLL_TOP_THRESHOLD;
 
-        if (scrollingDown && currentY > SCROLL_HIDE_THRESHOLD && !headerHidden) {
+        if (!atTop && !headerHidden) {
           headerHidden = true;
           header.classList.add("is-hidden");
           hamburgerBtn.classList.add("is-visible");
-        } else if (!scrollingDown && headerHidden) {
+        } else if (atTop && headerHidden) {
           headerHidden = false;
           header.classList.remove("is-hidden");
           hamburgerBtn.classList.remove("is-visible");
         }
-        lastScrollY = currentY;
       }
 
       window.addEventListener(
@@ -446,7 +450,6 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
       // 遷移直後は新しいページの先頭から見せたいので、ヘッダーの表示状態をリセットする
       document.addEventListener("astro:page-load", () => {
         headerHidden = false;
-        lastScrollY = window.scrollY;
         document.getElementById("site-header")?.classList.remove("is-hidden");
         document
           .getElementById("hamburger-btn")
@@ -482,7 +485,7 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         hamburgerBtn?.setAttribute("aria-expanded", "false");
         window.setTimeout(() => {
           if (!drawerIsOpen && overlay) overlay.hidden = true;
-        }, 250);
+        }, 200);
       }
 
       document.addEventListener("click", (e) => {
@@ -491,10 +494,6 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
 
         if (target.closest("#hamburger-btn")) {
           drawerIsOpen ? closeDrawer() : openDrawer();
-          return;
-        }
-        if (target.closest("#nav-drawer-close")) {
-          closeDrawer();
           return;
         }
         if (target.id === "nav-drawer-overlay") {
