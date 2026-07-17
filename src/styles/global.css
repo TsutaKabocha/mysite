@@ -136,7 +136,7 @@ svg {
 }
 
 a {
-  color: inherit;
+  color: var(--color-primary);
   text-decoration: underline;
   transition: color 0.15s ease;
 }
