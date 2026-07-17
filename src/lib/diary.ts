@@ -135,8 +135,11 @@ function convertTweetUrl(url: string): string | null {
   );
   if (!match) return null;
   // data-theme はビルド時点ではクライアントのテーマが分からないため light を既定にし、
-  // 実際の出し分けは BaseLayout.astro のクライアント側スクリプトが担う
-  return `<div class="diary-embed-tweet"><blockquote class="twitter-tweet" data-theme="light"><a href="${escapeHtmlAttr(url)}"></a></blockquote></div>`;
+  // 実際の出し分けは BaseLayout.astro のクライアント側スクリプトが担う。
+  // widgets.js は描画時に<blockquote>を丸ごと別要素に差し替え、元のURL(<a href>)を
+  // 保持しないため、テーマ再切り替え時にも復元できるようラッパー側にURLを控えておく。
+  const safeUrl = escapeHtmlAttr(url);
+  return `<div class="diary-embed-tweet" data-original-url="${safeUrl}"><blockquote class="twitter-tweet" data-theme="light"><a href="${safeUrl}"></a></blockquote></div>`;
 }
 
 function convertBlueskyUrl(url: string): string | null {

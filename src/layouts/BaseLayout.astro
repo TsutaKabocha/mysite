@@ -35,13 +35,21 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
     <script is:inline>
       (function () {
         var STORAGE_KEY = "theme";
-        var stored = localStorage.getItem(STORAGE_KEY);
-        var theme =
-          stored ||
-          (window.matchMedia("(prefers-color-scheme: dark)").matches
-            ? "dark"
-            : "light");
-        document.documentElement.setAttribute("data-theme", theme);
+        function applyStoredTheme() {
+          var stored = localStorage.getItem(STORAGE_KEY);
+          var theme =
+            stored ||
+            (window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light");
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+        applyStoredTheme();
+        // ClientRouter(View Transitions)でのページ遷移は<html>を遷移先の
+        // 生HTML(data-theme属性を持たない)で置き換えるため、ランタイムで
+        // 付与したdata-themeが遷移のたびに消えてしまう。astro:after-swap
+        // (DOM差し替え直後・描画前)で再適用し、テーマを復元する。
+        document.addEventListener("astro:after-swap", applyStoredTheme);
       })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -426,12 +434,14 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
       }
 
       // 埋め込みツイートはビルド時に静的生成されるため、data-theme はここで
-      // クライアント側から都度上書きし、twttr.widgets.load() で反映させる
-      // (widgets.js未処理の.twitter-tweetが対象。既にiframe化済みのものには効かない)
+      // クライアント側から都度上書きし、twttr.widgets.load() で反映させる。
+      // 対象は未描画の<blockquote class="twitter-tweet">のみ(タグ名で絞る)。
+      // widgets.jsは描画後、blockquoteを<div class="twitter-tweet twitter-tweet-rendered">
+      // に置き換えるため、classだけで絞るとその置き換え後のdivまで拾ってしまう。
       function refreshTweetEmbeds() {
         const isDark = currentTheme() === "dark";
         document
-          .querySelectorAll<HTMLElement>(".twitter-tweet")
+          .querySelectorAll<HTMLElement>("blockquote.twitter-tweet")
           .forEach((el) => {
             el.setAttribute("data-theme", isDark ? "dark" : "light");
           });
@@ -441,18 +451,22 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         twttr?.widgets?.load();
       }
 
-      // widgets.jsが一度<blockquote>をiframe(twitter-widget)へ変換すると、
-      // 再度widgets.load()を呼んでもdata-theme変更は反映されない。
-      // そのため既に描画済みのツイートは元の<blockquote>の形に戻してから
-      // 再描画し、テーマ切り替え後もカードの見た目を追従させる。
+      // widgets.jsは描画時に<blockquote>を全く別のDOM要素(現行仕様では
+      // <div class="twitter-tweet twitter-tweet-rendered">、旧仕様では
+      // <twitter-widget>の場合もある)に差し替えてしまい、data-theme等の
+      // カスタム属性も元の<a href>も引き継がれない。再度widgets.load()を
+      // 呼んでもこの差し替え後の要素は「描画済み」として無視されるため、
+      // 一度<blockquote>の形に戻してから再描画する必要がある。
+      // URLは差し替え後の要素からは復元できないため、diary.tsで
+      // ラッパー(.diary-embed-tweet)側に控えておいたdata-original-urlから読む。
       function reloadTweetEmbeds() {
         document
           .querySelectorAll<HTMLElement>(".twitter-tweet-rendered, twitter-widget")
           .forEach((el) => {
-            const url =
-              el.getAttribute("data-tweet-url") ??
-              el.shadowRoot?.querySelector("a")?.getAttribute("href") ??
-              "";
+            const wrapper = el.closest<HTMLElement>(".diary-embed-tweet");
+            const url = wrapper?.getAttribute("data-original-url") ?? "";
+            if (!url) return; // URLが復元できない場合は空のblockquoteを作らない
+
             const blockquote = document.createElement("blockquote");
             blockquote.className = "twitter-tweet";
             blockquote.setAttribute(
