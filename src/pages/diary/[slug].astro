@@ -377,6 +377,20 @@ const nextEntry =
       margin: 1.5em 0;
     }
 
+    /*
+     * 動画/ツイートURLは前処理でMarkdown中に生のHTML(<div>)として埋め込まれるため、
+     * 空行を挟まず直後に続くキャプション行はmarkedのHTMLブロック判定に飲み込まれ、
+     * <p>で囲まれないテキストノードとして出力される(diary.tsのconvertBareUrl参照)。
+     * その結果 `.diary-article__body :global(p + p)` が効かず次の投稿との余白が
+     * 詰まって見えるが、隣接セレクタはテキストノードを無視してマッチするため、
+     * ここでdiv直後のpにも同じ余白を明示的に与えて補う。
+     */
+    .diary-article__body :global(.diary-image-pair + p),
+    .diary-article__body :global(.diary-embed-video + p),
+    .diary-article__body :global(.diary-embed-tweet + p) {
+      margin-top: 1.8em;
+    }
+
     .lightbox {
       display: none;
       position: fixed;
