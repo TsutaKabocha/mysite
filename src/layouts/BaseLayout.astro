@@ -481,49 +481,97 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         twttr?.widgets?.load();
       }
 
-      // widgets.jsの'rendered'イベントは、各ツイートの描画(iframe生成)が
-      // 完了した瞬間に発火する公式API。ページ遷移直後は widgets.js の
-      // 非同期読み込み・自動描画とastro:page-loadの発火順が保証されないため、
-      // 稀にastro:page-load時点でのdata-theme修正より先に(誤った既定テーマで)
-      // 描画が完了してしまうことがある。'rendered'を監視し、実際に描画された
-      // iframeのtheme(src中のクエリパラメータ)と現在のテーマが食い違って
-      // いる場合だけreloadTweetEmbeds()で作り直す(一致していれば何もしない
-      // ため無限ループにはならない)。
-      function bindTweetRenderedEvent(retriesLeft = 40) {
-        const twttr = (window as unknown as {
-          twttr?: {
-            events?: {
-              bind: (event: string, cb: (event: unknown) => void) => void;
-            };
-          };
-        }).twttr;
+      // widgets.js(非同期読み込み)がastro:page-loadより先にツイートを
+      // 描画し終えてしまうことがあり、その場合data-theme修正が間に合わず
+      // 誤ったテーマのまま固定されてしまう。twttr.events.bind('rendered', ...)
+      // に頼らず、.diary-embed-tweet直下の子要素の変化をMutationObserverで
+      // 直接監視し、描画済み要素(twitter-widget / .twitter-tweet-rendered)が
+      // 追加された瞬間に捉えて補正する。
+      //
+      // 補正はreloadTweetEmbeds()自身が「未描画→描画済み」への差し替えを
+      // 引き起こすため、無条件にreloadTweetEmbeds()を呼ぶと
+      // 描画→検知→reload→再描画→再検知→…と無限ループになってしまう。
+      // 実際に描画されたiframeのtheme(src中のクエリパラメータ)と
+      // 現在のテーマを比較し、食い違っている場合だけ呼ぶことでこれを防ぐ
+      // (一致していれば何もしないため、ループはそこで止まる)。
+      let tweetObserver: MutationObserver | null = null;
 
-        if (twttr?.events?.bind) {
-          twttr.events.bind("rendered", (event) => {
-            const iframe = (event as { target?: unknown })?.target;
-            if (!(iframe instanceof HTMLIFrameElement)) return;
+      function watchTweetTheme() {
+        if (tweetObserver) {
+          tweetObserver.disconnect();
+          tweetObserver = null;
+        }
+
+        const wrappers = document.querySelectorAll<HTMLElement>(
+          ".diary-embed-tweet"
+        );
+        if (wrappers.length === 0) return; // ツイートがないページは何もしない
+
+        tweetObserver = new MutationObserver((mutations) => {
+          for (const mutation of mutations) {
+            let iframe: HTMLIFrameElement | null = null;
+
+            // widgets.jsはまず(srcが空の)<iframe>を含むコンテナを挿入し、
+            // 実際のsrc属性は少し遅れて別のmutationとして設定する。
+            // そのためchildList側だけでなく、iframeのsrc属性が実際に
+            // 設定された瞬間(attributes mutation)も監視対象にする。
+            if (
+              mutation.type === "attributes" &&
+              mutation.attributeName === "src" &&
+              mutation.target instanceof HTMLIFrameElement
+            ) {
+              iframe = mutation.target;
+            } else if (mutation.type === "childList") {
+              for (const node of Array.from(mutation.addedNodes)) {
+                const el = node as HTMLElement;
+                const isRenderedNode =
+                  el.nodeName === "TWITTER-WIDGET" ||
+                  (el.classList?.contains("twitter-tweet-rendered") ?? false);
+                if (!isRenderedNode) continue;
+
+                const found =
+                  el.nodeName === "IFRAME"
+                    ? (el as unknown as HTMLIFrameElement)
+                    : el.querySelector<HTMLIFrameElement>("iframe");
+                if (found?.src) iframe = found; // srcが未設定ならこの時点ではまだ判定しない
+              }
+            }
+
+            if (!iframe || !iframe.src) continue;
+
             let renderedTheme: string | null = null;
             try {
               renderedTheme = new URL(iframe.src).searchParams.get("theme");
             } catch {
-              return;
+              continue;
             }
+            // iframeのthemeと現在のthemeが違う場合のみreload
             if (renderedTheme !== currentTheme()) {
               reloadTweetEmbeds();
             }
-          });
-          return;
-        }
+            return; // 1回のmutationで複数発火しないようにreturn
+          }
+        });
 
-        // widgets.js自体がまだ読み込まれておらずtwttr.eventsが未定義の場合は、
-        // 利用可能になるまで短い間隔でリトライする(最大4秒)
-        if (retriesLeft <= 0) return;
-        window.setTimeout(() => bindTweetRenderedEvent(retriesLeft - 1), 100);
+        // .diary-embed-tweetコンテナを監視する。widgets.jsは描画時、まず
+        // 空の(または未完成の)コンテナ要素をラッパーの直接の子として挿入し、
+        // 続けてその内側にiframeを追加、さらにその後iframeのsrc属性を
+        // 設定するという多段階の処理を行う。そのため
+        // childList(挿入) + subtree(内側のiframeまで) + attributes(src設定)
+        // のすべてを監視対象にする。
+        wrappers.forEach((wrapper) => {
+          tweetObserver!.observe(wrapper, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ["src"],
+          });
+        });
       }
 
       updateToggleLabels();
       refreshTweetEmbeds();
-      bindTweetRenderedEvent();
+      watchTweetTheme();
       document.addEventListener("astro:page-load", () => {
         updateToggleLabels();
         // widgets.js(非同期読み込み)の自動描画は、まだ未描画の<blockquote>を
@@ -534,10 +582,9 @@ const diaryHref = latestDiaryEntry ? `/diary/${latestDiaryEntry.id}/` : "/";
         // 最終的に正しいテーマで表示されるようにする。
         refreshTweetEmbeds();
         reloadTweetEmbeds();
-        // data-astro-rerunによりwidgets.jsは遷移のたびに再実行されるため、
-        // window.twttrが再構築され、以前バインドした'rendered'リスナーが
-        // 引き継がれない可能性がある。遷移ごとに再バインドしておく。
-        bindTweetRenderedEvent();
+        // 遷移後は.diary-embed-tweetの実体も入れ替わっているため、
+        // observerを毎回張り直す。
+        watchTweetTheme();
       });
 
       // --- テーマ切り替えのリップルアニメーション(lab効果の設定に関係なく常に動作する) ---
